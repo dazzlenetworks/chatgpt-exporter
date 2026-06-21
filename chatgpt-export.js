@@ -1,3 +1,18 @@
+/*
+ * ChatGPT Exporter
+ *
+ * Paste this script into the browser console while viewing a ChatGPT
+ * conversation page. It will extract visible conversation turns and download
+ * them as a Markdown file.
+ *
+ * Notes:
+ * - This script depends on the current ChatGPT page structure and may need
+ *   updates if the UI changes.
+ * - Export formatting is intentionally simple and may not perfectly preserve
+ *   all rich text elements.
+ * - Review exported files before sharing if the conversation contains
+ *   sensitive information.
+ */
 (() => {
     function formatDate(date = new Date()) {
         return date.toISOString().split('T')[0];
@@ -69,7 +84,7 @@
     }
 
     function stripNoise(container) {
-        // Remove common UI elements
+        // Remove common interface elements that should not appear in exports.
         container.querySelectorAll([
             'button',
             'svg',
@@ -88,7 +103,7 @@
         const processed = extractCodeBlocks(container);
         stripNoise(processed);
 
-        // Replace images with placeholders
+        // Replace image-like content with placeholders so the export remains readable.
         processed.querySelectorAll('img, canvas').forEach(() => {
             const placeholder = document.createTextNode('[Image]');
             processed.appendChild(placeholder);
@@ -97,7 +112,7 @@
         return cleanText(processed.innerText);
     }
 
-    // ✅ Modern selector strategy (2026-safe)
+    // Conversation turns are identified by ChatGPT's author-role attribute.
     const turns = document.querySelectorAll('[data-message-author-role]');
     const lines = [];
 
@@ -111,6 +126,10 @@
     const chatTitle = getChatTitle();
     const url = window.location.href;
 
+    if (!turns.length) {
+        console.warn('No conversation turns were found. ChatGPT may have changed its page structure.');
+        return;
+    }
 
     lines.push(`# ${title}\n`);
     lines.push(`**Title:** ${chatTitle}`);
@@ -127,7 +146,7 @@
         if (role === 'user') sender = 'User Prompt';
         if (role === 'assistant') sender = 'ChatGPT';
 
-        // Message content container (more resilient search)
+        // Try likely message body containers used by the current ChatGPT UI.
         const content =
             turn.querySelector('.markdown') ||
             turn.querySelector('.prose') ||
@@ -153,5 +172,5 @@
     a.click();
     document.body.removeChild(a);
 
-    console.log("Export complete.");
+        console.log('Export complete.');
 })();
