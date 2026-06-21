@@ -14,19 +14,16 @@
  *   sensitive information.
  */
 (() => {
-    function formatDate(date = new Date()) {
-        return date.toISOString().split('T')[0];
-    }
-
-    function formatDateTime(date = new Date()) {
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+        function formatCreatedFrontmatter(date = new Date()) {
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
         const year = date.getFullYear();
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
 
         return `${month}/${day}/${year} ${hours}:${minutes}`;
     }
+
 
     function formatFilenameTimestamp(date = new Date()) {
 
@@ -39,7 +36,12 @@
         return `${year}-${month}${day}-${hours}${minutes}`;
     }
 
+        function escapeYamlString(value) {
+        return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+
     function sanitizeFilenamePart(value) {
+
         return (value || '')
             .replace(/[<>:"/\\|?*]/g, '')
             .replace(/\s+/g, ' ')
@@ -117,11 +119,11 @@
     const lines = [];
 
 
-    const title = "ChatGPT Conversation Export";
+        const title = 'ChatGPT Conversation Export';
     const now = new Date();
-    const date = formatDate(now);
-    const dateTime = formatDateTime(now);
+    const created = formatCreatedFrontmatter(now);
     const filenameTimestamp = formatFilenameTimestamp(now);
+
 
     const chatTitle = getChatTitle();
     const url = window.location.href;
@@ -131,13 +133,17 @@
         return;
     }
 
-    lines.push(`# ${title}\n`);
-    lines.push(`**Title:** ${chatTitle}`);
-    lines.push(`**Date:** ${dateTime}`);
+        lines.push('---');
+    lines.push(`created: ${created}`);
+    lines.push(`title: "${escapeYamlString(chatTitle)}"`);
+    lines.push(`source: "${escapeYamlString(url)}"`);
+    lines.push('---');
+    lines.push('');
+    lines.push(`# ${title}`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
 
-    lines.push(`**Source:** ${url}`);
-
-    lines.push('\n---\n');
 
     turns.forEach(turn => {
         const role = turn.getAttribute('data-message-author-role');

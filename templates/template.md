@@ -1,8 +1,10 @@
-# ChatGPT Conversation Export
+---
+created: {{EXPORT_DATETIME}}
+title: {{CHAT_TITLE}}
+source: {{SOURCE_URL}}
+---
 
-**Title:** {{CHAT_TITLE}}
-**Date:** {{EXPORT_DATETIME}}
-**Source:** {{SOURCE_URL}}
+# ChatGPT Conversation Export
 
 ---
 
@@ -37,7 +39,7 @@ Template notes:
 - Replace placeholders with real values before use.
 - Suggested placeholder meanings:
   - {{CHAT_TITLE}}: Conversation title
-  - {{EXPORT_DATETIME}}: Export timestamp, e.g. 05/05/2026 20:57
+  - {{EXPORT_DATETIME}}: Export timestamp, e.g. 5/5/2026 20:57
   - {{SOURCE_URL}}: Original chat URL
   - {{USER_MESSAGE_N}} / {{ASSISTANT_MESSAGE_N}}: Message body content
 -->
