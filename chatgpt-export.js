@@ -85,19 +85,27 @@
         return clone;
     }
 
-    function stripNoise(container) {
+        function stripNoise(container) {
         // Remove common interface elements that should not appear in exports.
         container.querySelectorAll([
             'button',
             'svg',
             'form',
             'nav',
-            '[role="button"]',
             '[aria-label="Copy"]'
         ].join(',')).forEach(el => el.remove());
 
+        // Remove button-like wrappers only when they do not contain meaningful text.
+        container.querySelectorAll('[role="button"]').forEach(el => {
+            const text = cleanText(el.innerText || '');
+            if (!text) {
+                el.remove();
+            }
+        });
+
         return container;
     }
+
 
     function extractMessageText(container) {
         if (!container) return '';
