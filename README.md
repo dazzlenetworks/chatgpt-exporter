@@ -21,6 +21,8 @@ A small browser-console script that exports the currently open ChatGPT conversat
 
 - `chatgpt-export.js` - main export script
 - `templates/template.md` - reference template for the Markdown output format
+- `samples/2026-0621-0304 ChatGPT export - Lorem Ipsum Text.md` - curated sample export showing realistic current output
+
 
 ## Notes and limitations
 
