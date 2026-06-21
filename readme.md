@@ -14,6 +14,5 @@ https://chatgpt.com/c/69dbc827-8558-83e8-b14b-43cb6c21f4c2
 
 ## Future developments
 
-- Improve default filename of export
 - Turn into a browser extension, possibly
 - Improve format of exported chats
