@@ -14,7 +14,7 @@
  *   sensitive information.
  */
 (() => {
-        function formatCreatedFrontmatter(date = new Date()) {
+    function formatCreatedFrontmatter(date = new Date()) {
         const month = date.getMonth() + 1;
         const day = date.getDate();
         const year = date.getFullYear();
@@ -36,7 +36,7 @@
         return `${year}-${month}${day}-${hours}${minutes}`;
     }
 
-        function escapeYamlString(value) {
+    function escapeYamlString(value) {
         return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     }
 
@@ -66,12 +66,34 @@
             .trim();
     }
 
+    function renderInline(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent || '';
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return '';
+        }
+
+        const tag = node.tagName.toLowerCase();
+        const children = Array.from(node.childNodes).map(renderInline).join('');
+
+        if (tag === 'br') return '\n';
+        if (tag === 'strong' || tag === 'b') return children ? `**${children}**` : '';
+        if (tag === 'em' || tag === 'i') return children ? `*${children}*` : '';
+        if (tag === 'code') return children;
+        if (tag === 'p') return children ? `${children}\n\n` : '';
+
+        return children;
+    }
+
+
     function extractCodeBlocks(container) {
         const clone = container.cloneNode(true);
 
         clone.querySelectorAll('pre').forEach(pre => {
             const codeEl = pre.querySelector('code');
-            const code = (codeEl?.innerText || pre.innerText || '').trim();
+            const code = cleanText(renderInline(codeEl || pre));
 
             let lang = '';
             const className = codeEl?.className || '';
@@ -85,54 +107,163 @@
         return clone;
     }
 
-        function stripNoise(container) {
-            // Remove common interface elements that should not appear in exports.
-            container.querySelectorAll([
-                'button',
-                'svg',
-                'form',
-                'nav',
-                '[aria-label="Copy"]'
-            ].join(',')).forEach(el => el.remove());
+    function replaceElementWithMarkdown(element, markdown) {
+        element.replaceWith(document.createTextNode(markdown));
+    }
 
-            // Remove button-like wrappers only when they do not contain meaningful text.
-            container.querySelectorAll('[role="button"]').forEach(el => {
-                const text = cleanText(el.innerText || '');
-                if (!text) {
-                    el.remove();
-                }
-            });
+    function extractHorizontalRules(container) {
+        container.querySelectorAll('hr').forEach(hr => {
+            replaceElementWithMarkdown(hr, '\n---\n');
+        });
 
-            return container;
-        }
+        return container;
+    }
 
-        function extractBlockquotes(container) {
-            container.querySelectorAll('blockquote').forEach(blockquote => {
-                const text = cleanText(blockquote.innerText || '');
-                if (!text) {
-                    blockquote.remove();
+    function extractHeadings(container) {
+        container.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(heading => {
+            const level = Number(heading.tagName.charAt(1));
+            const text = cleanText(renderInline(heading));
+            if (!text) {
+                heading.remove();
+                return;
+            }
+
+            replaceElementWithMarkdown(heading, `\n${'#'.repeat(level)} ${text}\n`);
+        });
+
+        return container;
+    }
+
+    function extractInlineCode(container) {
+        container.querySelectorAll('code').forEach(code => {
+            if (code.closest('pre')) return;
+
+            const text = cleanText(code.textContent || '');
+            replaceElementWithMarkdown(code, text ? `\`${text}\`` : '');
+        });
+
+        return container;
+    }
+
+
+    function extractLists(container) {
+        container.querySelectorAll('ul, ol').forEach(list => {
+            if (list.parentElement?.closest('ul, ol')) return;
+
+            const isOrdered = list.tagName.toLowerCase() === 'ol';
+            const markdown = renderList(list, isOrdered ? 0 : 0);
+            replaceElementWithMarkdown(list, `\n${markdown}\n`);
+        });
+
+        return container;
+    }
+
+    function renderList(list, depth = 0) {
+
+
+        const isOrdered = list.tagName.toLowerCase() === 'ol';
+        const items = Array.from(list.children).filter(child => child.tagName?.toLowerCase() === 'li');
+
+        return items.map((item, index) => {
+            const marker = isOrdered ? `${index + 1}. ` : '- ';
+            const indent = '  '.repeat(depth);
+            const childBlocks = [];
+            const inlineParts = [];
+
+            Array.from(item.childNodes).forEach(child => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    inlineParts.push(child.textContent || '');
                     return;
                 }
 
-                const quoted = text
-                    .split('\n')
-                    .map(line => `> ${line}`)
-                    .join('\n');
+                if (child.nodeType !== Node.ELEMENT_NODE) {
+                    return;
+                }
 
-                blockquote.replaceWith(`\n${quoted}\n`);
+                const tag = child.tagName.toLowerCase();
+                if (tag === 'ul' || tag === 'ol') {
+                    childBlocks.push(renderList(child, depth + 1));
+                } else if (tag === 'p') {
+                    inlineParts.push(cleanText(renderInline(child)));
+                } else {
+                    inlineParts.push(renderInline(child));
+                }
+
             });
 
-            return container;
-        }
+            const firstLine = cleanText(inlineParts.join(' '));
+            const lines = [];
 
-        function extractMessageText(container) {
+            if (firstLine) {
+                const splitLines = firstLine.split('\n');
+                lines.push(`${indent}${marker}${splitLines[0]}`);
+                splitLines.slice(1).forEach(line => {
+                    lines.push(`${indent}  ${line}`);
+                });
+            } else {
+                lines.push(`${indent}${marker}`.trimEnd());
+            }
 
+            childBlocks.forEach(block => {
+                lines.push(block);
+            });
+
+            return lines.join('\n');
+        }).join('\n');
+    }
+
+
+    function stripNoise(container) {
+        // Remove common interface elements that should not appear in exports.
+        container.querySelectorAll([
+            'button',
+            'svg',
+            'form',
+            'nav',
+            '[aria-label="Copy"]'
+        ].join(',')).forEach(el => el.remove());
+
+        // Remove button-like wrappers only when they do not contain meaningful text.
+        container.querySelectorAll('[role="button"]').forEach(el => {
+            const text = cleanText(el.innerText || '');
+            if (!text) {
+                el.remove();
+            }
+        });
+
+        return container;
+    }
+
+    function extractBlockquotes(container) {
+        container.querySelectorAll('blockquote').forEach(blockquote => {
+            const text = cleanText(renderInline(blockquote));
+            if (!text) {
+                blockquote.remove();
+                return;
+            }
+
+            const quoted = text
+                .split('\n')
+                .map(line => `> ${line}`)
+                .join('\n');
+
+            replaceElementWithMarkdown(blockquote, `\n${quoted}\n`);
+        });
+
+        return container;
+    }
+
+
+    function extractMessageText(container) {
         if (!container) return '';
 
-                const processed = extractCodeBlocks(container);
+        const processed = extractCodeBlocks(container);
         stripNoise(processed);
+        extractHorizontalRules(processed);
+        extractHeadings(processed);
+        extractInlineCode(processed);
+        extractLists(processed);
         extractBlockquotes(processed);
-
 
         // Replace image-like content with placeholders so the export remains readable.
         processed.querySelectorAll('img, canvas').forEach(() => {
@@ -140,15 +271,17 @@
             processed.appendChild(placeholder);
         });
 
-        return cleanText(processed.innerText);
+        return cleanText(renderInline(processed));
     }
+
+
 
     // Conversation turns are identified by ChatGPT's author-role attribute.
     const turns = document.querySelectorAll('[data-message-author-role]');
     const lines = [];
 
 
-        const title = 'ChatGPT Conversation Export';
+    const title = 'ChatGPT Conversation Export';
     const now = new Date();
     const created = formatCreatedFrontmatter(now);
     const filenameTimestamp = formatFilenameTimestamp(now);
@@ -162,7 +295,7 @@
         return;
     }
 
-        lines.push('---');
+    lines.push('---');
     lines.push(`created: ${created}`);
     lines.push(`title: "${escapeYamlString(chatTitle)}"`);
     lines.push(`source: "${escapeYamlString(url)}"`);
@@ -207,5 +340,5 @@
     a.click();
     document.body.removeChild(a);
 
-        console.log('Export complete.');
+    console.log('Export complete.');
 })();
