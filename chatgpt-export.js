@@ -86,32 +86,53 @@
     }
 
         function stripNoise(container) {
-        // Remove common interface elements that should not appear in exports.
-        container.querySelectorAll([
-            'button',
-            'svg',
-            'form',
-            'nav',
-            '[aria-label="Copy"]'
-        ].join(',')).forEach(el => el.remove());
+            // Remove common interface elements that should not appear in exports.
+            container.querySelectorAll([
+                'button',
+                'svg',
+                'form',
+                'nav',
+                '[aria-label="Copy"]'
+            ].join(',')).forEach(el => el.remove());
 
-        // Remove button-like wrappers only when they do not contain meaningful text.
-        container.querySelectorAll('[role="button"]').forEach(el => {
-            const text = cleanText(el.innerText || '');
-            if (!text) {
-                el.remove();
-            }
-        });
+            // Remove button-like wrappers only when they do not contain meaningful text.
+            container.querySelectorAll('[role="button"]').forEach(el => {
+                const text = cleanText(el.innerText || '');
+                if (!text) {
+                    el.remove();
+                }
+            });
 
-        return container;
-    }
+            return container;
+        }
 
+        function extractBlockquotes(container) {
+            container.querySelectorAll('blockquote').forEach(blockquote => {
+                const text = cleanText(blockquote.innerText || '');
+                if (!text) {
+                    blockquote.remove();
+                    return;
+                }
 
-    function extractMessageText(container) {
+                const quoted = text
+                    .split('\n')
+                    .map(line => `> ${line}`)
+                    .join('\n');
+
+                blockquote.replaceWith(`\n${quoted}\n`);
+            });
+
+            return container;
+        }
+
+        function extractMessageText(container) {
+
         if (!container) return '';
 
-        const processed = extractCodeBlocks(container);
+                const processed = extractCodeBlocks(container);
         stripNoise(processed);
+        extractBlockquotes(processed);
+
 
         // Replace image-like content with placeholders so the export remains readable.
         processed.querySelectorAll('img, canvas').forEach(() => {
