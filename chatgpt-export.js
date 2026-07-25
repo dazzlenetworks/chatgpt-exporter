@@ -52,7 +52,14 @@
     function getChatTitle() {
         const pageTitle = sanitizeFilenamePart(document.title);
 
-        if (!pageTitle || /^chatgpt$/i.test(pageTitle)) {
+        // Default page titles ChatGPT shows for an unnamed conversation: the
+        // plain product name on desktop and the marketing tagline on mobile.
+        // (sanitizeFilenamePart has already stripped the tagline's colon.)
+        const isDefaultTitle =
+            /^chatgpt$/i.test(pageTitle) ||
+            /^chatgpt[\s:,-]+chat, work, create & code with ai$/i.test(pageTitle);
+
+        if (!pageTitle || isDefaultTitle) {
             return 'Untitled chat';
         }
 
@@ -297,10 +304,10 @@
         extractLists(processed);
         extractBlockquotes(processed);
 
-        // Replace image-like content with placeholders so the export remains readable.
-        processed.querySelectorAll('img, canvas').forEach(() => {
-            const placeholder = document.createTextNode('[Image]');
-            processed.appendChild(placeholder);
+        // Replace image-like content with an inline placeholder so the marker
+        // stays where the image appeared instead of collecting at the end.
+        processed.querySelectorAll('img, canvas').forEach(el => {
+            el.replaceWith(document.createTextNode('[Image]'));
         });
 
         return cleanText(renderInline(processed));
