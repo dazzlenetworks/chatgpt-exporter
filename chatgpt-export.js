@@ -62,8 +62,30 @@
     function cleanText(text) {
         return text
             .replace(/\u200b/g, '') // zero-width chars
+            .replace(/[^\S\n]+\n/g, '\n') // trailing spaces/tabs before line breaks
             .replace(/\n{3,}/g, '\n\n')
             .trim();
+    }
+
+    // Collapse insignificant whitespace (source line wraps and runs of spaces)
+    // inside text nodes that carry real content, mirroring how the browser
+    // renders inline text. Whitespace-only nodes are left untouched so block
+    // separation is preserved, and <pre>/<code> subtrees are skipped so code
+    // indentation and spacing survive intact.
+    function normalizeWhitespace(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (/\S/.test(node.textContent)) {
+                node.textContent = node.textContent.replace(/\s+/g, ' ');
+            }
+            return;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'pre' || tag === 'code') return;
+
+        Array.from(node.childNodes).forEach(normalizeWhitespace);
     }
 
     function renderInline(node) {
@@ -89,9 +111,7 @@
 
 
     function extractCodeBlocks(container) {
-        const clone = container.cloneNode(true);
-
-        clone.querySelectorAll('pre').forEach(pre => {
+        container.querySelectorAll('pre').forEach(pre => {
             const codeEl = pre.querySelector('code');
             const code = cleanText(renderInline(codeEl || pre));
 
@@ -104,7 +124,7 @@
             pre.replaceWith(replacement);
         });
 
-        return clone;
+        return container;
     }
 
     function replaceElementWithMarkdown(element, markdown) {
@@ -191,7 +211,10 @@
 
             });
 
-            const firstLine = cleanText(inlineParts.join(' '));
+            // Join with no separator: text nodes already carry their own
+            // spacing, so a separator would add stray spaces where inline
+            // markup or streaming markers split the text (e.g. "8: 00").
+            const firstLine = cleanText(inlineParts.join(''));
             const lines = [];
 
             if (firstLine) {
@@ -257,7 +280,9 @@
     function extractMessageText(container) {
         if (!container) return '';
 
-        const processed = extractCodeBlocks(container);
+        const processed = container.cloneNode(true);
+        normalizeWhitespace(processed);
+        extractCodeBlocks(processed);
         stripNoise(processed);
         extractHorizontalRules(processed);
         extractHeadings(processed);
