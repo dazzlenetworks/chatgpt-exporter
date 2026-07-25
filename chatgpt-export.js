@@ -59,11 +59,43 @@
             /^chatgpt$/i.test(pageTitle) ||
             /^chatgpt[\s:,-]+chat, work, create & code with ai$/i.test(pageTitle);
 
+        // Return empty so the caller can fall back to the first user prompt
+        // (named chats set a real page title; logged-out chats do not).
         if (!pageTitle || isDefaultTitle) {
-            return 'Untitled chat';
+            return '';
         }
 
         return pageTitle;
+    }
+
+    // When the page has no chat name (typically logged-out sessions), derive a
+    // filename-friendly title from the opening user message instead of a
+    // generic placeholder.
+    function firstUserMessageTitle(turns) {
+        for (const turn of turns) {
+            const role =
+                turn.getAttribute('data-message-author-role') ||
+                turn.getAttribute('data-message-role');
+            if (role !== 'user') continue;
+
+            const content =
+                turn.querySelector('[data-user-message-copy]') ||
+                turn.querySelector('.markdown') ||
+                turn.querySelector('.prose') ||
+                turn;
+
+            const text = (content.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!text) continue;
+
+            const maxLen = 60;
+            if (text.length <= maxLen) return sanitizeFilenamePart(text);
+
+            // Trim to the last whole word within the limit.
+            const clipped = text.slice(0, maxLen).replace(/\s+\S*$/, '').trim();
+            return sanitizeFilenamePart(clipped || text.slice(0, maxLen));
+        }
+
+        return '';
     }
 
     function cleanText(text) {
@@ -328,7 +360,8 @@
     const filenameTimestamp = formatFilenameTimestamp(now);
 
 
-    const chatTitle = getChatTitle();
+    const chatTitle =
+        getChatTitle() || firstUserMessageTitle(turns) || 'Untitled chat';
     const url = window.location.href;
 
     if (!turns.length) {
