@@ -67,7 +67,7 @@ Some advanced content may still export imperfectly, including:
 - Mermaid diagrams
 - some rich UI-specific or rendered content
 
-It also depends on the current ChatGPT web UI structure, so it may need updates if the site changes.
+It works with both the desktop site and the mobile web app layouts. Because it still depends on the current ChatGPT web UI structure, it may need updates if the site changes.
 
 
 ## References
