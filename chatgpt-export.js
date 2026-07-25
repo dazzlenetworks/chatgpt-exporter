@@ -276,8 +276,10 @@
 
 
 
-    // Conversation turns are identified by ChatGPT's author-role attribute.
-    const turns = document.querySelectorAll('[data-message-author-role]');
+    // Conversation turns are identified by ChatGPT's role attribute. The
+    // desktop site uses `data-message-author-role`; the mobile web app uses
+    // `data-message-role`. Support both so exports work across layouts.
+    const turns = document.querySelectorAll('[data-message-author-role], [data-message-role]');
     const lines = [];
 
 
@@ -308,14 +310,19 @@
 
 
     turns.forEach(turn => {
-        const role = turn.getAttribute('data-message-author-role');
+        const role =
+            turn.getAttribute('data-message-author-role') ||
+            turn.getAttribute('data-message-role');
 
         let sender = 'Unknown';
         if (role === 'user') sender = 'User Prompt';
         if (role === 'assistant') sender = 'ChatGPT';
 
-        // Try likely message body containers used by the current ChatGPT UI.
+        // Try likely message body containers, covering both the desktop site
+        // (.markdown / .prose) and the mobile web app (data-* markers).
         const content =
+            turn.querySelector('[data-assistant-markdown]') ||
+            turn.querySelector('[data-user-message-copy]') ||
             turn.querySelector('.markdown') ||
             turn.querySelector('.prose') ||
             turn.querySelector('div');
