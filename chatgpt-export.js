@@ -120,7 +120,14 @@
             const match = className.match(/language-([\w]+)/);
             if (match) lang = match[1];
 
-            const replacement = `\n\`\`\`${lang}\n${code}\n\`\`\`\n`;
+            // Use a fence longer than the longest run of backticks inside the
+            // code so embedded fences (e.g. a Markdown sample containing its
+            // own code block) don't terminate the block early.
+            const longestRun = (code.match(/`+/g) || [])
+                .reduce((max, run) => Math.max(max, run.length), 0);
+            const fence = '`'.repeat(Math.max(3, longestRun + 1));
+
+            const replacement = `\n${fence}${lang}\n${code}\n${fence}\n`;
             pre.replaceWith(replacement);
         });
 
