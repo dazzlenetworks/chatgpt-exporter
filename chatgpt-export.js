@@ -859,16 +859,23 @@
             'font:500 12px/1.2 ui-sans-serif,system-ui,sans-serif'
         ].join(';');
 
+        // Broken over two lines, which in a vertical writing mode makes two columns
+        // rather than a longer run. It costs no width — the rail is as wide as its
+        // tiles — and takes about 40px off the rail's height.
         const wordmark = document.createElement('div');
-        wordmark.textContent = 'ChatGPT Exporter';
+        wordmark.append('ChatGPT', document.createElement('br'), 'Exporter');
         wordmark.style.cssText = [
             'writing-mode:vertical-rl',
             'transform:rotate(180deg)',
             'padding:2px 0',
-            'font-size:9px',
+            'font-size:11px',
+            // Leading of 1 pulls the two columns together so they read as one
+            // wordmark rather than as two separate words.
+            'line-height:1',
             'font-weight:600',
             'letter-spacing:.12em',
             'text-transform:uppercase',
+            'text-align:center',
             `color:${MUTED}`,
             'cursor:default',
             'user-select:none'
@@ -917,6 +924,12 @@
         // mutation — assigning unconditionally would retrigger the observer and
         // leave the rail updating itself forever.
         if (count.textContent !== label) count.textContent = label;
+
+        // Take the count out of the layout entirely when empty. An empty span is
+        // still a flex item, so the row's gap would still be applied and would push
+        // the dot off the rail's centre — visible, because the dot is the only thing
+        // in the row at that point and has nothing to be balanced against.
+        count.style.display = label ? '' : 'none';
 
         panel.querySelectorAll('button').forEach(button => {
             button.disabled = !turns;
