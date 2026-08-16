@@ -143,9 +143,31 @@
         if (tag === 'strong' || tag === 'b') return children ? `**${children}**` : '';
         if (tag === 'em' || tag === 'i') return children ? `*${children}*` : '';
         if (tag === 'code') return children;
+        if (tag === 'a') return renderLink(node, children);
         if (tag === 'p') return children ? `${children}\n\n` : '';
 
         return children;
+    }
+
+    // Render an anchor as Markdown, keeping the URL that the surrounding text
+    // is citing. ChatGPT's inline source citations are anchors too, so without
+    // this the export keeps the site name and silently loses the link.
+    function renderLink(node, children) {
+        const rawHref = (node.getAttribute('href') || '').trim();
+        const label = children.replace(/\s+/g, ' ').trim();
+
+        // Script and placeholder targets are interface wiring, not references.
+        if (!rawHref || /^(javascript:|#)/i.test(rawHref)) return children;
+
+        // The href property resolves relative targets against the page, so a
+        // site-relative link exports as something a reader can actually follow.
+        const url = node.href || rawHref;
+
+        // A bare URL as its own label is an autolink; [url](url) is just noise.
+        if (!label || label === url || label === rawHref) return `<${url}>`;
+
+        // Whitespace or parentheses in the target would end the link early.
+        return `[${label}](${/[()\s]/.test(url) ? `<${url}>` : url})`;
     }
 
 
@@ -322,6 +344,27 @@
         return container;
     }
 
+    // Runs before the block extractors so every renderInline caller sees the
+    // same resolved tree; images inside headings, lists and blockquotes used to
+    // vanish silently because only the final pass replaced them.
+    function extractImages(container) {
+        container.querySelectorAll('img, canvas').forEach(el => {
+            // An image inside a link is decorative in ChatGPT's inline
+            // citations — the source's favicon beside its name — so a
+            // placeholder there would only clutter the link label.
+            if (el.closest('a')) {
+                el.remove();
+                return;
+            }
+
+            // Elsewhere the marker stays inline, where the image appeared,
+            // instead of collecting at the end.
+            replaceElementWithMarkdown(el, '[Image]');
+        });
+
+        return container;
+    }
+
 
     function extractMessageText(container) {
         if (!container) return '';
@@ -330,17 +373,12 @@
         normalizeWhitespace(processed);
         extractCodeBlocks(processed);
         stripNoise(processed);
+        extractImages(processed);
         extractHorizontalRules(processed);
         extractHeadings(processed);
         extractInlineCode(processed);
         extractLists(processed);
         extractBlockquotes(processed);
-
-        // Replace image-like content with an inline placeholder so the marker
-        // stays where the image appeared instead of collecting at the end.
-        processed.querySelectorAll('img, canvas').forEach(el => {
-            el.replaceWith(document.createTextNode('[Image]'));
-        });
 
         return cleanText(renderInline(processed));
     }

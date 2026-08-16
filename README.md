@@ -14,7 +14,6 @@ It is useful when you want to:
 
 ## What it does
 
-
 - reads the conversation currently visible in ChatGPT
 - extracts user and assistant messages
 - builds a Markdown document with basic metadata
@@ -58,6 +57,8 @@ It currently handles ordinary conversation content fairly well, including:
 - code blocks
 - blockquotes
 - inline emphasis and inline code
+- links, including the inline source citations ChatGPT adds when it searches
+  the web — these export as ordinary Markdown links to the cited page
 
 Some advanced content may still export imperfectly, including:
 - tables
@@ -68,7 +69,6 @@ Some advanced content may still export imperfectly, including:
 - some rich UI-specific or rendered content
 
 It works with both the desktop site and the mobile web app layouts. Because it still depends on the current ChatGPT web UI structure, it may need updates if the site changes.
-
 
 ## References
 
