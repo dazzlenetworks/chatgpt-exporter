@@ -43,7 +43,9 @@ Each Markdown export opens with a short YAML block:
 4. The **ChatGPT Exporter** rail appears at the right of the page.
 5. Press the eye to read the Markdown first, or **.md** / **.html** to download it straight away.
 
-**Preview** opens the export on screen and writes nothing to disk. It shows the document exactly as the Markdown export would write it — the same text, from the same code — along with the filename it would be saved under. Dismiss it with the **Close** button, the `Escape` key, or a click outside it.
+**Preview** opens the export on screen and writes nothing to disk. It shows the document exactly as the Markdown export would write it — the same text, from the same code — along with the filename it would be saved under.
+
+The preview carries its own **.md** and **.html** buttons, so a conversation can be read and then exported without closing it. Both save under the filename shown in the preview's own header, and the preview stays open afterwards so the other format is still one click away. Dismiss it with **Close**, the `Escape` key, or a click outside it.
 
 ### Reading the rail
 
