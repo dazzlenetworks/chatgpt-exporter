@@ -199,10 +199,29 @@
     }
 
 
+    // ChatGPT renders code inside a CodeMirror editor, which gives every line its
+    // own <div> and leaves no newline characters in the text at all. renderInline
+    // concatenates children, so read those lines directly or the whole block
+    // collapses onto one line. The older <pre>/<code> markup is still handled,
+    // because the mobile web app may still produce it.
+    //
+    // cleanText is deliberately not applied to the CodeMirror path: it collapses
+    // runs of blank lines and trims trailing whitespace, both of which can be
+    // meaningful inside a code block.
+    function readCodeText(pre, codeEl) {
+        const cmLines = pre.querySelectorAll('.cm-line');
+        if (!cmLines.length) return cleanText(renderInline(codeEl || pre));
+
+        return Array.from(cmLines)
+            .map(line => (line.textContent || '').replace(/\u00a0/g, ' '))
+            .join('\n')
+            .replace(/^\n+|\n+$/g, '');
+    }
+
     function extractCodeBlocks(container) {
         container.querySelectorAll('pre').forEach(pre => {
             const codeEl = pre.querySelector('code');
-            const code = cleanText(renderInline(codeEl || pre));
+            const code = readCodeText(pre, codeEl);
 
             let lang = '';
             const className = codeEl?.className || '';
