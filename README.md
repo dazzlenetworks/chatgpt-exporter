@@ -1,6 +1,6 @@
 # ChatGPT Exporter
 
-A small browser-console script that exports the currently open ChatGPT conversation to a Markdown file.
+A small browser script that exports the currently open ChatGPT conversation, either as a Markdown file or as the conversation's own HTML markup.
 
 ## Why this exists
 
@@ -15,17 +15,27 @@ It is useful when you want to:
 ## What it does
 
 - reads the conversation currently visible in ChatGPT
-- extracts user and assistant messages
-- builds a Markdown document with basic metadata
-- downloads the result as a `.md` file
+- adds a small **Export** panel to the page, with a **Markdown** and an **HTML** button
+- **Markdown** extracts the user and assistant messages and downloads a `.md` file with basic metadata
+- **HTML** downloads the conversation's own markup instead, which is what you want when the exporter needs fixing
+
+Both files are named for the same timestamp and chat title, so a pair exported together sorts side by side.
 
 ## Usage
 
 1. Open a ChatGPT conversation in your browser.
 2. Open browser developer tools.
-3. Paste the contents of `chatgpt-export.js` into the console.
-4. Run it.
-5. A Markdown file will be downloaded automatically.
+3. Paste the contents of `chatgpt-export.js` into the console and run it.
+4. The **Export** panel appears at the right of the page.
+5. Click **Markdown** or **HTML**. The file downloads immediately.
+
+The panel stays as you move between conversations, and disappears on pages that have no conversation on them.
+
+### Running it from a userscript manager
+
+The script also works unmodified under Violentmonkey, Tampermonkey or similar. Loaded that way it does not export on its own — it paints the same panel, and additionally registers both exports as menu commands in case a future ChatGPT stylesheet ever hides the panel.
+
+It does not ship with a userscript header; add `@match https://chatgpt.com/*` yourself if you want that.
 
 ## Files
 
@@ -42,10 +52,23 @@ This sample shows both the current strengths of the exporter and a few known rou
 
 ## Privacy and safety
 
-- The script runs locally in your browser console.
-- It reads the conversation currently open in ChatGPT and downloads a Markdown file to your machine.
-- It does not require a server, package install, or external API.
+- The script runs locally in your browser. It does not require a server, package install, or external API, and it sends nothing anywhere — every file it produces is a download to your own machine.
 - Review exported files before sharing them, especially if chats contain sensitive or private information.
+
+### What the HTML export captures
+
+Worth knowing precisely, because raw markup can carry more than it appears to.
+
+It captures **the smallest element that contains every message in the conversation, and nothing above it**. That element is found by walking up from the messages themselves rather than by matching a fixed selector, so it does not drift into the surrounding page when ChatGPT changes its layout.
+
+From within that element it then removes:
+
+- `script` elements, which can carry embedded JSON about your account
+- `nav` and `aside` elements, and any link to another conversation
+
+Those removals are a safety net rather than the main defence: the sidebar, your account menu and your other chats all sit outside the captured element to begin with.
+
+It does not capture the page's stylesheets, so the saved file will not look like ChatGPT. It is meant for reading markup, not for reading the conversation — use the Markdown export for that.
 
 ## Limitations
 
@@ -78,8 +101,9 @@ It works with both the desktop site and the mobile web app layouts. Because it s
 ## Roadmap
 
 - Improve formatting preservation in exported chats
-- Better handling for code blocks, lists, and images
-- Possibly turn it into a browser extension
+- Better handling for tables, images, and other rich content
+- A preview of the Markdown before exporting it
+- Package it for one-click installation
 
 ## License
 
