@@ -660,10 +660,12 @@
         // Never two.
         closePreview();
 
-        const surface = 'var(--token-main-surface-primary,#ffffff)';
-        const border = 'var(--token-border-light,rgba(127,127,127,.4))';
-        const text = 'var(--token-text-primary,#0d0d0d)';
-        const muted = 'var(--token-text-secondary,#5d5d5d)';
+        // Shares the rail's palette rather than restating it, so the two cannot
+        // drift into looking like different tools.
+        const surface = SURFACE;
+        const border = BORDER;
+        const text = TEXT;
+        const muted = MUTED;
 
         const backdrop = document.createElement('div');
         backdrop.id = PREVIEW_ID;
@@ -764,24 +766,81 @@
 
     const PANEL_ID = 'chatgpt-exporter-panel';
 
-    // A floating panel rather than only a menu entry, because the export is about
-    // the conversation in front of you and the control belongs beside it. Mid-right:
-    // ChatGPT uses the bottom of the viewport for its own scroll and composer
-    // controls, so anchoring there invites a collision on every redesign.
-    function buildPanel() {
-        // Colours resolve through ChatGPT's own theme variables, so the panel
-        // follows light and dark without this script tracking either. The literal
-        // after each comma is what shows if those variable names change.
-        const surface = 'var(--token-main-surface-primary,#ffffff)';
-        const border = 'var(--token-border-light,rgba(127,127,127,.4))';
-        const text = 'var(--token-text-primary,#0d0d0d)';
-        const muted = 'var(--token-text-secondary,#5d5d5d)';
+    // Colours resolve through ChatGPT's own theme variables, so the rail follows
+    // light and dark without this script tracking either. The literal after each
+    // comma is what shows if those variable names are ever renamed.
+    const SURFACE = 'var(--token-main-surface-primary,#ffffff)';
+    const BORDER = 'var(--token-border-light,rgba(127,127,127,.4))';
+    const TEXT = 'var(--token-text-primary,#0d0d0d)';
+    const MUTED = 'var(--token-text-secondary,#5d5d5d)';
+    const READY = 'var(--token-text-accent,#10a37f)';
 
+    // Drawn inline rather than fetched: ChatGPT's connect-src blocks requests to
+    // anywhere we could host them, and `currentColor` makes them follow the theme
+    // for free. ChatGPT's own sprite sheet is deliberately not reused — its
+    // filename carries a build hash and changes without warning.
+    const ICONS = {
+        preview: '<path d="M1.5 10S4.7 4.5 10 4.5 18.5 10 18.5 10 15.3 15.5 10 15.5 1.5 10 1.5 10z"/><circle cx="10" cy="10" r="2.4"/>',
+        markdown: '<path d="M10 3.2v8.6M6.6 8.4 10 11.8l3.4-3.4M4 16h12"/>',
+        html: '<path d="M7.4 6 3.2 10l4.2 4M12.6 6l4.2 4-4.2 4"/>'
+    };
+
+    function buildIcon(paths) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 20 20');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('style', 'width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;display:block');
+        svg.innerHTML = paths;
+        return svg;
+    }
+
+    // Icon and label share one bordered box so they read as a single control.
+    // Placing a label near an icon and relying on the gap is what this replaces —
+    // proximity is arguable, an enclosing border is not.
+    function buildTile(icon, label, description, handler) {
+        const tile = document.createElement('button');
+        tile.type = 'button';
+
+        // The only name a screen reader gets: the eye has no text at all, and an
+        // extension alone does not say what pressing it does.
+        tile.title = description;
+        tile.setAttribute('aria-label', description);
+
+        tile.style.cssText = [
+            'display:flex',
+            'flex-direction:column',
+            'align-items:center',
+            'gap:1px',
+            'width:34px',
+            label ? 'padding:4px 0 3px' : 'padding:6px 0',
+            'border-radius:8px',
+            `border:1px solid ${BORDER}`,
+            'background:transparent',
+            `color:${TEXT}`,
+            'cursor:pointer',
+            'font:inherit'
+        ].join(';');
+
+        tile.appendChild(buildIcon(icon));
+
+        if (label) {
+            const caption = document.createElement('span');
+            caption.textContent = label;
+            caption.style.cssText = `font-size:8px;letter-spacing:.02em;color:${MUTED}`;
+            tile.appendChild(caption);
+        }
+
+        tile.addEventListener('click', handler);
+        return tile;
+    }
+
+    // A rail rather than a card, because the export is about the conversation in
+    // front of you and the control belongs beside it. Mid-right: ChatGPT uses the
+    // bottom of the viewport for its own scroll and composer controls, so anchoring
+    // there invites a collision on every redesign.
+    function buildPanel() {
         const panel = document.createElement('div');
         panel.id = PANEL_ID;
-
-        // One card rather than loose buttons: the heading carries the verb, so each
-        // control only has to name its format.
         panel.style.cssText = [
             'position:fixed',
             'right:12px',
@@ -790,91 +849,79 @@
             'z-index:2147483647',
             'display:flex',
             'flex-direction:column',
-            'gap:4px',
-            'padding:8px',
-            'border-radius:10px',
-            `border:1px solid ${border}`,
-            `background:${surface}`,
-            'box-shadow:0 2px 8px rgba(0,0,0,.25)',
+            'align-items:center',
+            'gap:6px',
+            'padding:8px 6px',
+            'border-radius:12px',
+            `border:1px solid ${BORDER}`,
+            `background:${SURFACE}`,
+            'box-shadow:0 2px 10px rgba(0,0,0,.25)',
             'font:500 12px/1.2 ui-sans-serif,system-ui,sans-serif'
         ].join(';');
 
-        const heading = document.createElement('div');
-        heading.textContent = 'Export';
-        heading.style.cssText = [
-            'padding:0 2px',
-            'font-size:11px',
+        const wordmark = document.createElement('div');
+        wordmark.textContent = 'ChatGPT Exporter';
+        wordmark.style.cssText = [
+            'writing-mode:vertical-rl',
+            'transform:rotate(180deg)',
+            'padding:2px 0',
+            'font-size:9px',
             'font-weight:600',
-            'letter-spacing:.04em',
+            'letter-spacing:.12em',
             'text-transform:uppercase',
-            `color:${muted}`,
+            `color:${MUTED}`,
             'cursor:default',
             'user-select:none'
         ].join(';');
-        panel.appendChild(heading);
+        panel.appendChild(wordmark);
 
-        // The panel's own state, so its presence answers "did the script load?" and
-        // this line answers "has it got anything to work with?". Without it the two
-        // questions have the same answer — nothing on screen — and a failed load is
-        // indistinguishable from an empty page.
+        // The dot reports this script, not the conversation, so it never changes.
+        // Its honest limit: it cannot report a broken exporter, because the code
+        // that would change it is the code that failed. The rail being absent
+        // altogether is what that failure looks like.
         const status = document.createElement('div');
         status.setAttribute('data-exporter-status', '');
-        status.style.cssText = [
-            'padding:0 2px 4px',
-            'font-size:11px',
-            'font-weight:400',
-            `color:${muted}`,
-            'cursor:default',
-            'user-select:none'
-        ].join(';');
+        status.style.cssText = 'display:flex;align-items:center;gap:4px;height:11px;cursor:default;user-select:none';
+
+        const dot = document.createElement('span');
+        dot.style.cssText = `width:7px;height:7px;border-radius:999px;background:${READY};flex:none`;
+        status.appendChild(dot);
+
+        const count = document.createElement('span');
+        count.setAttribute('data-exporter-count', '');
+        count.style.cssText = `font-size:11px;font-weight:700;line-height:1;color:${TEXT}`;
+        status.appendChild(count);
+
         panel.appendChild(status);
 
-        // Preview first: it is the one that costs nothing to press, and reading
-        // before writing is the order you want a user to fall into.
-        [
-            ['Preview', previewMarkdown],
-            ['Markdown', exportMarkdown],
-            ['HTML', exportHtml]
-        ].forEach(([label, handler]) => {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.textContent = label;
-            button.style.cssText = [
-                'padding:5px 10px',
-                'border-radius:6px',
-                'cursor:pointer',
-                'white-space:nowrap',
-                'text-align:left',
-                'font:inherit',
-                `border:1px solid ${border}`,
-                'background:transparent',
-                `color:${text}`
-            ].join(';');
-
-            button.addEventListener('click', handler);
-            panel.appendChild(button);
-        });
+        // Preview first: it is the one that writes nothing, and reading before
+        // writing is the order to fall into. Its tile carries no label because it
+        // produces no file, so there is no extension to name.
+        panel.appendChild(buildTile(ICONS.preview, '', 'Preview the Markdown export', previewMarkdown));
+        panel.appendChild(buildTile(ICONS.markdown, '.md', 'Export the conversation as Markdown', exportMarkdown));
+        panel.appendChild(buildTile(ICONS.html, '.html', 'Export the conversation markup as HTML', exportHtml));
 
         return panel;
     }
 
-    // Reflect the conversation in the panel: how many turns would be exported, and
-    // whether there is anything to export at all.
+    // The conversation's state lives in the tiles rather than in words: they are
+    // inert with nothing to export and live once there are turns. The count appears
+    // beside the dot only when there is one to show.
     function updatePanelState(panel) {
-        const count = findTurns().length;
-        const status = panel.querySelector('[data-exporter-status]');
-        const label = count ? `${count} turn${count === 1 ? '' : 's'}` : 'No conversation';
+        const turns = findTurns().length;
+        const label = turns ? String(turns) : '';
+        const count = panel.querySelector('[data-exporter-count]');
 
         // Only write when it actually changed. This runs from a MutationObserver
         // watching the whole subtree, and replacing the text node is itself a
         // mutation — assigning unconditionally would retrigger the observer and
-        // leave the panel updating itself forever.
-        if (status.textContent !== label) status.textContent = label;
+        // leave the rail updating itself forever.
+        if (count.textContent !== label) count.textContent = label;
 
         panel.querySelectorAll('button').forEach(button => {
-            button.disabled = !count;
-            button.style.opacity = count ? '1' : '.45';
-            button.style.cursor = count ? 'pointer' : 'default';
+            button.disabled = !turns;
+            button.style.opacity = turns ? '1' : '.35';
+            button.style.cursor = turns ? 'pointer' : 'default';
         });
     }
 
