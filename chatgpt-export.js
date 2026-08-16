@@ -218,15 +218,31 @@
             .replace(/^\n+|\n+$/g, '');
     }
 
+    // The language used to ride on the <code> element as a language-* class.
+    // CodeMirror blocks have no such class: the language is plain text in a header
+    // above the editor, alongside the copy and edit controls. Strip the editor and
+    // the controls and whatever remains is the label.
+    function readCodeLanguage(pre, codeEl) {
+        const className = codeEl?.className || '';
+        const match = className.match(/language-([\w]+)/);
+        if (match) return match[1];
+
+        if (!pre.querySelector('.cm-editor')) return '';
+
+        const header = pre.cloneNode(true);
+        header.querySelectorAll('.cm-editor, button, svg').forEach(el => el.remove());
+        const text = (header.textContent || '').replace(/\s+/g, ' ').trim();
+
+        // A language tag is one short token. Anything longer means the header was
+        // not found and we are looking at interface text, so take nothing.
+        return /^[a-z0-9+#.-]{1,15}$/i.test(text) ? text.toLowerCase() : '';
+    }
+
     function extractCodeBlocks(container) {
         container.querySelectorAll('pre').forEach(pre => {
             const codeEl = pre.querySelector('code');
             const code = readCodeText(pre, codeEl);
-
-            let lang = '';
-            const className = codeEl?.className || '';
-            const match = className.match(/language-([\w]+)/);
-            if (match) lang = match[1];
+            const lang = readCodeLanguage(pre, codeEl);
 
             // Use a fence longer than the longest run of backticks inside the
             // code so embedded fences (e.g. a Markdown sample containing its
