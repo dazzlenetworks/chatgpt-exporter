@@ -523,7 +523,7 @@
     // Exports the conversation markup itself, for whoever has to repair this script
     // after ChatGPT changes its UI. Every fix so far needed the real DOM, produced
     // by hand from the inspector each time.
-    function exportHtml() {
+    function exportHtml(moment) {
         const root = findConversationRoot();
 
         if (!root) {
@@ -531,6 +531,8 @@
             return;
         }
 
+        // Same guard as exportMarkdown: also used directly as a click handler.
+        const now = usableMoment(moment) ? moment : new Date();
         const clone = root.cloneNode(true);
 
         // `script` can carry embedded JSON about the account, and is noise for
@@ -544,11 +546,11 @@
         const html = [
             '<!DOCTYPE html>',
             '<meta charset="utf-8">',
-            `<!-- ChatGPT conversation markup, exported ${formatCreatedFrontmatter()} from ${window.location.href} -->`,
+            `<!-- ChatGPT conversation markup, exported ${formatCreatedFrontmatter(now)} from ${window.location.href} -->`,
             clone.outerHTML
         ].join('\n');
 
-        downloadFile(buildExportName('html'), html, 'text/html');
+        downloadFile(buildExportName('html', now), html, 'text/html');
         console.log('DOM export complete.');
     }
 
@@ -625,8 +627,20 @@
         return lines.join('\n').trim();
     }
 
-    function exportMarkdown() {
-        const now = new Date();
+    // The moment is an argument so the preview can export under the same filename
+    // it displayed, rather than deriving a fresh one that may have crossed a minute.
+    //
+    // Guarded rather than defaulted, because these are also click handlers: an
+    // unguarded parameter would silently receive a MouseEvent. Duck-typed rather
+    // than `instanceof Date`, which answers no for a date built in another realm or
+    // before something replaced the global — both of which look exactly like the
+    // caller passing nothing.
+    function usableMoment(value) {
+        return value && typeof value.getTime === 'function' && !isNaN(value.getTime());
+    }
+
+    function exportMarkdown(moment) {
+        const now = usableMoment(moment) ? moment : new Date();
         const markdown = buildMarkdown(now);
         if (!markdown) return;
 
@@ -747,8 +761,21 @@
         ].join(';');
         close.addEventListener('click', closePreview);
 
+        // The same tiles as the rail, so the two surfaces read as one tool. Both
+        // are handed the moment the header was built from, so pressing one here
+        // writes the file whose name is on display beside it — deriving a fresh
+        // moment would rename the file out from under the label.
+        //
+        // The overlay stays open afterwards: both formats are plausibly wanted from
+        // one reading, and closing would remove the thing being checked.
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;align-items:center;gap:6px;flex:none';
+        actions.appendChild(buildTile(ICONS.markdown, '.md', 'Export the conversation as Markdown', () => exportMarkdown(now)));
+        actions.appendChild(buildTile(ICONS.html, '.html', 'Export the conversation markup as HTML', () => exportHtml(now)));
+        actions.appendChild(close);
+
         header.appendChild(name);
-        header.appendChild(close);
+        header.appendChild(actions);
 
         const body = document.createElement('pre');
         body.textContent = markdown;
