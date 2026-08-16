@@ -595,8 +595,19 @@
     // ChatGPT uses the bottom of the viewport for its own scroll and composer
     // controls, so anchoring there invites a collision on every redesign.
     function buildPanel() {
+        // Colours resolve through ChatGPT's own theme variables, so the panel
+        // follows light and dark without this script tracking either. The literal
+        // after each comma is what shows if those variable names change.
+        const surface = 'var(--token-main-surface-primary,#ffffff)';
+        const border = 'var(--token-border-light,rgba(127,127,127,.4))';
+        const text = 'var(--token-text-primary,#0d0d0d)';
+        const muted = 'var(--token-text-secondary,#5d5d5d)';
+
         const panel = document.createElement('div');
         panel.id = PANEL_ID;
+
+        // One card rather than loose buttons: the heading carries the verb, so each
+        // control only has to name its format.
         panel.style.cssText = [
             'position:fixed',
             'right:12px',
@@ -605,30 +616,46 @@
             'z-index:2147483647',
             'display:flex',
             'flex-direction:column',
-            'gap:6px',
-            'font:500 12px/1 ui-sans-serif,system-ui,sans-serif'
+            'gap:4px',
+            'padding:8px',
+            'border-radius:10px',
+            `border:1px solid ${border}`,
+            `background:${surface}`,
+            'box-shadow:0 2px 8px rgba(0,0,0,.25)',
+            'font:500 12px/1.2 ui-sans-serif,system-ui,sans-serif'
         ].join(';');
 
+        const heading = document.createElement('div');
+        heading.textContent = 'Export';
+        heading.style.cssText = [
+            'padding:0 2px 2px',
+            'font-size:11px',
+            'font-weight:600',
+            'letter-spacing:.04em',
+            'text-transform:uppercase',
+            `color:${muted}`,
+            'cursor:default',
+            'user-select:none'
+        ].join(';');
+        panel.appendChild(heading);
+
         [
-            ['Export MD', exportMarkdown],
-            ['Export HTML', exportHtml]
+            ['Markdown', exportMarkdown],
+            ['HTML', exportHtml]
         ].forEach(([label, handler]) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.textContent = label;
-
-            // Colours resolve through ChatGPT's own theme variables so the panel
-            // follows light and dark without this script tracking either. The
-            // literals after each comma are what shows if those names change.
             button.style.cssText = [
-                'padding:6px 10px',
-                'border-radius:8px',
+                'padding:5px 10px',
+                'border-radius:6px',
                 'cursor:pointer',
                 'white-space:nowrap',
-                'border:1px solid var(--token-border-light,rgba(127,127,127,.4))',
-                'background:var(--token-main-surface-primary,#ffffff)',
-                'color:var(--token-text-primary,#0d0d0d)',
-                'box-shadow:0 1px 3px rgba(0,0,0,.25)'
+                'text-align:left',
+                'font:inherit',
+                `border:1px solid ${border}`,
+                'background:transparent',
+                `color:${text}`
             ].join(';');
 
             button.addEventListener('click', handler);
