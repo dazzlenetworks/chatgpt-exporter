@@ -451,74 +451,87 @@
     // Conversation turns are identified by ChatGPT's role attribute. The
     // desktop site uses `data-message-author-role`; the mobile web app uses
     // `data-message-role`. Support both so exports work across layouts.
-    const turns = document.querySelectorAll('[data-message-author-role], [data-message-role]');
-    const lines = [];
-
-
-    const title = 'ChatGPT Conversation Export';
-    const now = new Date();
-    const created = formatCreatedFrontmatter(now);
-    const filenameTimestamp = formatFilenameTimestamp(now);
-
-
-    const chatTitle =
-        getChatTitle() || firstUserMessageTitle(turns) || 'Untitled chat';
-    const url = window.location.href;
-
-    if (!turns.length) {
-        console.warn('No conversation turns were found. ChatGPT may have changed its page structure.');
-        return;
+    function findTurns() {
+        return document.querySelectorAll('[data-message-author-role], [data-message-role]');
     }
 
-    lines.push('---');
-    lines.push(`created: ${created}`);
-    lines.push(`title: "${escapeYamlString(chatTitle)}"`);
-    lines.push(`source: "${escapeYamlString(url)}"`);
-    lines.push('---');
-    lines.push('');
-    lines.push(`# ${title}`);
-    lines.push('');
-    lines.push('---');
-    lines.push('');
+    function exportMarkdown() {
+        const turns = findTurns();
+        const lines = [];
 
+        const title = 'ChatGPT Conversation Export';
+        const now = new Date();
+        const created = formatCreatedFrontmatter(now);
+        const filenameTimestamp = formatFilenameTimestamp(now);
 
-    turns.forEach(turn => {
-        const role =
-            turn.getAttribute('data-message-author-role') ||
-            turn.getAttribute('data-message-role');
+        const chatTitle =
+            getChatTitle() || firstUserMessageTitle(turns) || 'Untitled chat';
+        const url = window.location.href;
 
-        let sender = 'Unknown';
-        if (role === 'user') sender = 'User Prompt';
-        if (role === 'assistant') sender = 'ChatGPT';
+        if (!turns.length) {
+            console.warn('No conversation turns were found. ChatGPT may have changed its page structure.');
+            return;
+        }
 
-        // Try likely message body containers, covering both the desktop site
-        // (.markdown / .prose) and the mobile web app (data-* markers).
-        const content =
-            turn.querySelector('[data-assistant-markdown]') ||
-            turn.querySelector('[data-user-message-copy]') ||
-            turn.querySelector('.markdown') ||
-            turn.querySelector('.prose') ||
-            turn.querySelector('div');
+        lines.push('---');
+        lines.push(`created: ${created}`);
+        lines.push(`title: "${escapeYamlString(chatTitle)}"`);
+        lines.push(`source: "${escapeYamlString(url)}"`);
+        lines.push('---');
+        lines.push('');
+        lines.push(`# ${title}`);
+        lines.push('');
+        lines.push('---');
+        lines.push('');
 
-        const text = extractMessageText(content);
+        turns.forEach(turn => {
+            const role =
+                turn.getAttribute('data-message-author-role') ||
+                turn.getAttribute('data-message-role');
 
-        if (!text) return;
+            let sender = 'Unknown';
+            if (role === 'user') sender = 'User Prompt';
+            if (role === 'assistant') sender = 'ChatGPT';
 
-        lines.push(`## ${sender}\n`);
-        lines.push(text);
-        lines.push('\n---\n');
-    });
+            // Try likely message body containers, covering both the desktop site
+            // (.markdown / .prose) and the mobile web app (data-* markers).
+            const content =
+                turn.querySelector('[data-assistant-markdown]') ||
+                turn.querySelector('[data-user-message-copy]') ||
+                turn.querySelector('.markdown') ||
+                turn.querySelector('.prose') ||
+                turn.querySelector('div');
 
-    const markdown = lines.join('\n').trim();
+            const text = extractMessageText(content);
 
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${filenameTimestamp} ChatGPT export - ${chatTitle}.md`;
+            if (!text) return;
 
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+            lines.push(`## ${sender}\n`);
+            lines.push(text);
+            lines.push('\n---\n');
+        });
 
-    console.log('Export complete.');
+        const markdown = lines.join('\n').trim();
+
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${filenameTimestamp} ChatGPT export - ${chatTitle}.md`;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        console.log('Export complete.');
+    }
+
+    // How this file is being run decides what happens now. Pasted into a console
+    // it is a one-shot command, so it exports. Loaded by a userscript manager it
+    // runs on every page view, where exporting unasked would be wrong — so it
+    // registers a command and waits.
+    if (typeof GM_registerMenuCommand === 'function') {
+        GM_registerMenuCommand('Export conversation to Markdown', exportMarkdown);
+    } else {
+        exportMarkdown();
+    }
 })();
