@@ -161,13 +161,41 @@
 
         // The href property resolves relative targets against the page, so a
         // site-relative link exports as something a reader can actually follow.
-        const url = node.href || rawHref;
+        const url = stripChatgptTracking(node.href || rawHref);
 
         // A bare URL as its own label is an autolink; [url](url) is just noise.
         if (!label || label === url || label === rawHref) return `<${url}>`;
 
         // Whitespace or parentheses in the target would end the link early.
         return `[${label}](${/[()\s]/.test(url) ? `<${url}>` : url})`;
+    }
+
+    // ChatGPT tags every citation it emits with utm_source=chatgpt.com. Drop
+    // exactly that pair and nothing else: other tracking parameters in these
+    // URLs belong to the destination site, and rewriting those would be
+    // editing someone else's link rather than removing our own footprint.
+    //
+    // Done by splitting on the separators rather than through the URL API,
+    // which would re-encode the parameters left behind.
+    function stripChatgptTracking(url) {
+        const tracker = 'utm_source=chatgpt.com';
+        if (!url.includes(tracker)) return url;
+
+        // Hold the fragment aside so query surgery cannot disturb it.
+        const hashAt = url.indexOf('#');
+        const hash = hashAt === -1 ? '' : url.slice(hashAt);
+        const base = hashAt === -1 ? url : url.slice(0, hashAt);
+
+        const queryAt = base.indexOf('?');
+        if (queryAt === -1) return url;
+
+        const kept = base
+            .slice(queryAt + 1)
+            .split('&')
+            .filter(pair => pair !== tracker);
+
+        // Drop the '?' too when the tracker was the only parameter.
+        return base.slice(0, queryAt) + (kept.length ? `?${kept.join('&')}` : '') + hash;
     }
 
 
