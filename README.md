@@ -15,7 +15,8 @@ It is useful when you want to:
 ## What it does
 
 - adds a small **Export** panel to the page, showing how many conversation turns it can see
-- reads the conversation currently visible in ChatGPT when you click one of its two buttons
+- reads the conversation currently visible in ChatGPT when you press one of its buttons
+- **Preview** shows the Markdown on screen without saving anything
 - **Markdown** extracts the user and assistant messages and downloads a `.md` file with basic metadata
 - **HTML** downloads the conversation's own markup instead, which is what you want when the exporter needs fixing
 
@@ -40,7 +41,9 @@ Each Markdown export opens with a short YAML block:
 2. Open browser developer tools.
 3. Paste the contents of `chatgpt-export.js` into the console and run it.
 4. The **Export** panel appears at the right of the page.
-5. Click **Markdown** or **HTML**. The file downloads immediately.
+5. Press **Preview** to read the Markdown first, or **Markdown** / **HTML** to download it straight away.
+
+**Preview** opens the export on screen and writes nothing to disk. It shows the document exactly as the Markdown export would write it — the same text, from the same code — along with the filename it would be saved under. Dismiss it with the **Close** button, the `Escape` key, or a click outside it.
 
 The panel stays put as you move between conversations, and reports what it can see: a turn count when there is a conversation, or `No conversation` with the buttons disabled when there is not.
 
@@ -117,7 +120,6 @@ It works with both the desktop site and the mobile web app layouts. Because it s
 
 - Improve formatting preservation in exported chats
 - Better handling for tables, images, and other rich content
-- A preview of the Markdown before exporting it
 - Package it for one-click installation
 
 ## License
