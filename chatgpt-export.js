@@ -455,6 +455,73 @@
         return document.querySelectorAll('[data-message-author-role], [data-message-role]');
     }
 
+    function downloadFile(filename, text, mimeType) {
+        const blob = new Blob([text], { type: mimeType });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function buildExportName(extension, now = new Date()) {
+        const chatTitle =
+            getChatTitle() || firstUserMessageTitle(findTurns()) || 'Untitled chat';
+
+        return `${formatFilenameTimestamp(now)} ChatGPT export - ${chatTitle}.${extension}`;
+    }
+
+    // The smallest element containing every turn. Deliberately computed rather than
+    // matched by id or class: it is derived from the same attribute the exporter
+    // already depends on, so it adds no new way for ChatGPT's markup to break this.
+    // Picking a node by hand is not reproducible either — two dumps taken minutes
+    // apart rooted at different elements.
+    function findConversationRoot() {
+        const turns = findTurns();
+        if (!turns.length) return null;
+
+        let root = turns[0];
+        turns.forEach(turn => {
+            while (root && !root.contains(turn)) root = root.parentElement;
+        });
+
+        return root;
+    }
+
+    // Exports the conversation markup itself, for whoever has to repair this script
+    // after ChatGPT changes its UI. Every fix so far needed the real DOM, produced
+    // by hand from the inspector each time.
+    function exportHtml() {
+        const root = findConversationRoot();
+
+        if (!root) {
+            console.warn('No conversation turns were found. ChatGPT may have changed its page structure.');
+            return;
+        }
+
+        const clone = root.cloneNode(true);
+
+        // `script` can carry embedded JSON about the account, and is noise for
+        // selector work. The rest is defensive: if the computed root ever climbs
+        // higher than the thread, these are the sidebar and the chat-history list,
+        // which name other conversations.
+        clone.querySelectorAll('script, nav, aside, a[href^="/c/"]').forEach(el => el.remove());
+
+        // A charset declaration so the file survives being opened later, and a
+        // provenance comment so a folder of these can be told apart.
+        const html = [
+            '<!DOCTYPE html>',
+            '<meta charset="utf-8">',
+            `<!-- ChatGPT conversation markup, exported ${formatCreatedFrontmatter()} from ${window.location.href} -->`,
+            clone.outerHTML
+        ].join('\n');
+
+        downloadFile(buildExportName('html'), html, 'text/html');
+        console.log('DOM export complete.');
+    }
+
     function exportMarkdown() {
         const turns = findTurns();
         const lines = [];
@@ -462,7 +529,6 @@
         const title = 'ChatGPT Conversation Export';
         const now = new Date();
         const created = formatCreatedFrontmatter(now);
-        const filenameTimestamp = formatFilenameTimestamp(now);
 
         const chatTitle =
             getChatTitle() || firstUserMessageTitle(turns) || 'Untitled chat';
@@ -513,14 +579,7 @@
 
         const markdown = lines.join('\n').trim();
 
-        const blob = new Blob([markdown], { type: 'text/markdown' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${filenameTimestamp} ChatGPT export - ${chatTitle}.md`;
-
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        downloadFile(buildExportName('md', now), markdown, 'text/markdown');
 
         console.log('Export complete.');
     }
@@ -531,6 +590,7 @@
     // registers a command and waits.
     if (typeof GM_registerMenuCommand === 'function') {
         GM_registerMenuCommand('Export conversation to Markdown', exportMarkdown);
+        GM_registerMenuCommand('Export conversation markup as HTML', exportHtml);
     } else {
         exportMarkdown();
     }
