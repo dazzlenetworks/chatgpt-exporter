@@ -982,4 +982,14 @@
     }
 
     installPanel();
+
+    // The value this evaluates to is what a console prints after a paste, and for
+    // that path it is the only confirmation anything happened — an IIFE returning
+    // nothing prints `undefined`, which reads like failure.
+    //
+    // Returned rather than logged on purpose. Under a userscript manager this file
+    // runs on every page view, where a log line each time would be noise, while an
+    // unread completion value costs nothing.
+    const ready = findTurns().length;
+    return `ChatGPT Exporter ready — ${ready ? `${ready} turn${ready === 1 ? '' : 's'}` : 'no conversation'}`;
 })();
