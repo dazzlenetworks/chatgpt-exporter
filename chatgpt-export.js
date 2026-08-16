@@ -552,12 +552,18 @@
         console.log('DOM export complete.');
     }
 
-    function exportMarkdown() {
+    // Builds the document without deciding what to do with it, so the preview shows
+    // the export rather than a second rendering of the same conversation. Anything
+    // that renders Markdown its own way will drift from what actually downloads, and
+    // a preview you cannot trust is worse than none.
+    //
+    // Takes the moment as an argument so one export stamps its frontmatter and its
+    // filename identically, rather than calling the clock twice.
+    function buildMarkdown(now = new Date()) {
         const turns = findTurns();
         const lines = [];
 
         const title = 'ChatGPT Conversation Export';
-        const now = new Date();
         const created = formatCreatedFrontmatter(now);
 
         const chatTitle =
@@ -566,7 +572,7 @@
 
         if (!turns.length) {
             console.warn('No conversation turns were found. ChatGPT may have changed its page structure.');
-            return;
+            return '';
         }
 
         const started = conversationStarted();
@@ -616,17 +622,146 @@
             lines.push('\n---\n');
         });
 
-        const markdown = lines.join('\n').trim();
+        return lines.join('\n').trim();
+    }
+
+    function exportMarkdown() {
+        const now = new Date();
+        const markdown = buildMarkdown(now);
+        if (!markdown) return;
 
         downloadFile(buildExportName('md', now), markdown, 'text/markdown');
 
         console.log('Export complete.');
     }
 
-    // How this file is being run decides what happens now. Pasted into a console
-    // it is a one-shot command, so it exports. Loaded by a userscript manager it
-    // runs on every page view, where exporting unasked would be wrong — so it
-    // registers a command and waits.
+    const PREVIEW_ID = 'chatgpt-exporter-preview';
+
+    function closePreview() {
+        const overlay = document.getElementById(PREVIEW_ID);
+        if (overlay) overlay.remove();
+
+        // Removed rather than hidden, so nothing of ours is left listening or
+        // occupying the page once it is dismissed.
+        document.removeEventListener('keydown', onPreviewKey);
+    }
+
+    function onPreviewKey(event) {
+        if (event.key === 'Escape') closePreview();
+    }
+
+    // Shows exactly what a Markdown export would write, and the name it would write
+    // it under, so the export can be checked before it lands in a folder.
+    function previewMarkdown() {
+        const now = new Date();
+        const markdown = buildMarkdown(now);
+        if (!markdown) return;
+
+        // Never two.
+        closePreview();
+
+        const surface = 'var(--token-main-surface-primary,#ffffff)';
+        const border = 'var(--token-border-light,rgba(127,127,127,.4))';
+        const text = 'var(--token-text-primary,#0d0d0d)';
+        const muted = 'var(--token-text-secondary,#5d5d5d)';
+
+        const backdrop = document.createElement('div');
+        backdrop.id = PREVIEW_ID;
+        backdrop.style.cssText = [
+            'position:fixed',
+            'inset:0',
+            'z-index:2147483647',
+            'display:flex',
+            'align-items:center',
+            'justify-content:center',
+            'padding:24px',
+            'background:rgba(0,0,0,.5)',
+            'font:400 13px/1.4 ui-sans-serif,system-ui,sans-serif'
+        ].join(';');
+
+        // Only a click on the backdrop itself, so a click that lands inside the
+        // dialog and bubbles out does not dismiss it.
+        backdrop.addEventListener('click', event => {
+            if (event.target === backdrop) closePreview();
+        });
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = [
+            'display:flex',
+            'flex-direction:column',
+            'width:min(900px,100%)',
+            // Bounded by the viewport rather than by the content, so a long
+            // conversation scrolls inside the dialog instead of stretching it off
+            // the screen.
+            'max-height:80vh',
+            'border-radius:12px',
+            `border:1px solid ${border}`,
+            `background:${surface}`,
+            `color:${text}`,
+            'box-shadow:0 8px 32px rgba(0,0,0,.35)',
+            'overflow:hidden'
+        ].join(';');
+
+        const header = document.createElement('div');
+        header.style.cssText = [
+            'display:flex',
+            'align-items:center',
+            'justify-content:space-between',
+            'gap:12px',
+            'padding:10px 12px',
+            `border-bottom:1px solid ${border}`
+        ].join(';');
+
+        const name = document.createElement('div');
+        name.textContent = buildExportName('md', now);
+        name.style.cssText = [
+            'font-size:12px',
+            `color:${muted}`,
+            'overflow:hidden',
+            'text-overflow:ellipsis',
+            'white-space:nowrap'
+        ].join(';');
+
+        // Escape and clicking away both work, but neither announces itself. A
+        // visible control is the only dismissal a first-time user can see.
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = 'Close';
+        close.style.cssText = [
+            'flex:none',
+            'padding:4px 10px',
+            'border-radius:6px',
+            'cursor:pointer',
+            'font:inherit',
+            `border:1px solid ${border}`,
+            'background:transparent',
+            `color:${text}`
+        ].join(';');
+        close.addEventListener('click', closePreview);
+
+        header.appendChild(name);
+        header.appendChild(close);
+
+        const body = document.createElement('pre');
+        body.textContent = markdown;
+        body.style.cssText = [
+            'margin:0',
+            'padding:12px',
+            'overflow:auto',
+            'white-space:pre-wrap',
+            'word-break:break-word',
+            'font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
+            `color:${text}`
+        ].join(';');
+
+        dialog.appendChild(header);
+        dialog.appendChild(body);
+        backdrop.appendChild(dialog);
+
+        document.addEventListener('keydown', onPreviewKey);
+        document.body.appendChild(backdrop);
+    }
+
     const PANEL_ID = 'chatgpt-exporter-panel';
 
     // A floating panel rather than only a menu entry, because the export is about
@@ -694,7 +829,10 @@
         ].join(';');
         panel.appendChild(status);
 
+        // Preview first: it is the one that costs nothing to press, and reading
+        // before writing is the order you want a user to fall into.
         [
+            ['Preview', previewMarkdown],
             ['Markdown', exportMarkdown],
             ['HTML', exportHtml]
         ].forEach(([label, handler]) => {
@@ -778,6 +916,7 @@
     // still better than exporting immediately: both artifacts become available,
     // where a one-shot paste could only ever produce one of them.
     if (typeof GM_registerMenuCommand === 'function') {
+        GM_registerMenuCommand('Preview the Markdown export', previewMarkdown);
         GM_registerMenuCommand('Export conversation to Markdown', exportMarkdown);
         GM_registerMenuCommand('Export conversation markup as HTML', exportHtml);
     }
