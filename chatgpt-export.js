@@ -466,6 +466,36 @@
         document.body.removeChild(a);
     }
 
+    // When the conversation began, which the page states nowhere else: there is no
+    // date in any DOM attribute, and the per-message ids are random UUIDv4.
+    //
+    // ChatGPT's conversation ids are UUIDv8 carrying the creation time as Unix
+    // seconds in their first 32 bits. Confirmed on two conversations four months
+    // apart, and against the timestamp ChatGPT itself shows in a message's menu.
+    //
+    // The format is inferred rather than documented, so every part of it is checked
+    // before the value is used. A wrong date stated confidently is worse than an
+    // absent one, so anything unexpected returns null and the field is left out.
+    function conversationStarted(pathname = window.location.pathname) {
+        const id = pathname.match(
+            /\/c\/([0-9a-f]{8})-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}/i
+        );
+        if (!id) return null;
+
+        // Version nibble 8 marks a custom UUID. A v4 id is random and would decode
+        // to an arbitrary date rather than to nothing, so this check is what stops
+        // the whole idea producing plausible nonsense.
+        if (id[2] !== '8') return null;
+
+        const started = new Date(parseInt(id[1], 16) * 1000);
+        const earliest = Date.UTC(2022, 0, 1);
+
+        // Before ChatGPT existed, or in the future, means the assumption is wrong.
+        if (!(started.getTime() > earliest && started.getTime() <= Date.now())) return null;
+
+        return started;
+    }
+
     function buildExportName(extension, now = new Date()) {
         const chatTitle =
             getChatTitle() || firstUserMessageTitle(findTurns()) || 'Untitled chat';
@@ -539,8 +569,17 @@
             return;
         }
 
+        const started = conversationStarted();
+
         lines.push('---');
         lines.push(`created: ${created}`);
+
+        // Kept separate from `created` rather than replacing it: one says when the
+        // export ran, the other when the conversation began, and a reader has to be
+        // able to tell them apart. Absent entirely when it cannot be established,
+        // which is every logged-out conversation, since those have no id.
+        if (started) lines.push(`conversation_started: ${formatCreatedFrontmatter(started)}`);
+
         lines.push(`title: "${escapeYamlString(chatTitle)}"`);
         lines.push(`source: "${escapeYamlString(url)}"`);
         lines.push('---');
