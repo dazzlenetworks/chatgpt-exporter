@@ -667,7 +667,7 @@
         const heading = document.createElement('div');
         heading.textContent = 'Export';
         heading.style.cssText = [
-            'padding:0 2px 2px',
+            'padding:0 2px',
             'font-size:11px',
             'font-weight:600',
             'letter-spacing:.04em',
@@ -677,6 +677,22 @@
             'user-select:none'
         ].join(';');
         panel.appendChild(heading);
+
+        // The panel's own state, so its presence answers "did the script load?" and
+        // this line answers "has it got anything to work with?". Without it the two
+        // questions have the same answer — nothing on screen — and a failed load is
+        // indistinguishable from an empty page.
+        const status = document.createElement('div');
+        status.setAttribute('data-exporter-status', '');
+        status.style.cssText = [
+            'padding:0 2px 4px',
+            'font-size:11px',
+            'font-weight:400',
+            `color:${muted}`,
+            'cursor:default',
+            'user-select:none'
+        ].join(';');
+        panel.appendChild(status);
 
         [
             ['Markdown', exportMarkdown],
@@ -704,19 +720,44 @@
         return panel;
     }
 
+    // Reflect the conversation in the panel: how many turns would be exported, and
+    // whether there is anything to export at all.
+    function updatePanelState(panel) {
+        const count = findTurns().length;
+        const status = panel.querySelector('[data-exporter-status]');
+        const label = count ? `${count} turn${count === 1 ? '' : 's'}` : 'No conversation';
+
+        // Only write when it actually changed. This runs from a MutationObserver
+        // watching the whole subtree, and replacing the text node is itself a
+        // mutation — assigning unconditionally would retrigger the observer and
+        // leave the panel updating itself forever.
+        if (status.textContent !== label) status.textContent = label;
+
+        panel.querySelectorAll('button').forEach(button => {
+            button.disabled = !count;
+            button.style.opacity = count ? '1' : '.45';
+            button.style.cursor = count ? 'pointer' : 'default';
+        });
+    }
+
     // ChatGPT is a single-page app: the thread is replaced when you move between
     // conversations, so this runs again on mutation rather than once at load.
+    //
+    // The panel stays put across all of that, including where there is no
+    // conversation. Its presence is how anyone can tell the script is loaded, so
+    // removing it exactly when there is nothing to export would hide the panel in
+    // the one case where the user most needs to know it is there.
     function syncPanel() {
-        const present = document.getElementById(PANEL_ID);
-
-        if (!findTurns().length) {
-            if (present) present.remove();
-            return;
-        }
+        let panel = document.getElementById(PANEL_ID);
 
         // Appended to body, never into the thread, which does not survive
         // navigation.
-        if (!present) document.body.appendChild(buildPanel());
+        if (!panel) {
+            panel = buildPanel();
+            document.body.appendChild(panel);
+        }
+
+        updatePanelState(panel);
     }
 
     function installPanel() {
