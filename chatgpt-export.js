@@ -588,10 +588,92 @@
     // it is a one-shot command, so it exports. Loaded by a userscript manager it
     // runs on every page view, where exporting unasked would be wrong — so it
     // registers a command and waits.
+    const PANEL_ID = 'chatgpt-exporter-panel';
+
+    // A floating panel rather than only a menu entry, because the export is about
+    // the conversation in front of you and the control belongs beside it. Mid-right:
+    // ChatGPT uses the bottom of the viewport for its own scroll and composer
+    // controls, so anchoring there invites a collision on every redesign.
+    function buildPanel() {
+        const panel = document.createElement('div');
+        panel.id = PANEL_ID;
+        panel.style.cssText = [
+            'position:fixed',
+            'right:12px',
+            'top:50%',
+            'transform:translateY(-50%)',
+            'z-index:2147483647',
+            'display:flex',
+            'flex-direction:column',
+            'gap:6px',
+            'font:500 12px/1 ui-sans-serif,system-ui,sans-serif'
+        ].join(';');
+
+        [
+            ['Export MD', exportMarkdown],
+            ['Export HTML', exportHtml]
+        ].forEach(([label, handler]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+
+            // Colours resolve through ChatGPT's own theme variables so the panel
+            // follows light and dark without this script tracking either. The
+            // literals after each comma are what shows if those names change.
+            button.style.cssText = [
+                'padding:6px 10px',
+                'border-radius:8px',
+                'cursor:pointer',
+                'white-space:nowrap',
+                'border:1px solid var(--token-border-light,rgba(127,127,127,.4))',
+                'background:var(--token-main-surface-primary,#ffffff)',
+                'color:var(--token-text-primary,#0d0d0d)',
+                'box-shadow:0 1px 3px rgba(0,0,0,.25)'
+            ].join(';');
+
+            button.addEventListener('click', handler);
+            panel.appendChild(button);
+        });
+
+        return panel;
+    }
+
+    // ChatGPT is a single-page app: the thread is replaced when you move between
+    // conversations, so this runs again on mutation rather than once at load.
+    function syncPanel() {
+        const present = document.getElementById(PANEL_ID);
+
+        if (!findTurns().length) {
+            if (present) present.remove();
+            return;
+        }
+
+        // Appended to body, never into the thread, which does not survive
+        // navigation.
+        if (!present) document.body.appendChild(buildPanel());
+    }
+
+    function installPanel() {
+        syncPanel();
+
+        // Coalesce bursts of mutation — streaming a reply fires these continuously,
+        // and the check only needs to run once things settle.
+        let pending = 0;
+        new MutationObserver(() => {
+            clearTimeout(pending);
+            pending = setTimeout(syncPanel, 300);
+        }).observe(document.body, { childList: true, subtree: true });
+    }
+
+    // The panel is the interface in both modes. Under a userscript manager it is
+    // the only one, so the menu commands stay as a fallback for the case where a
+    // future ChatGPT stylesheet hides the panel. Pasted into a console the panel is
+    // still better than exporting immediately: both artifacts become available,
+    // where a one-shot paste could only ever produce one of them.
     if (typeof GM_registerMenuCommand === 'function') {
         GM_registerMenuCommand('Export conversation to Markdown', exportMarkdown);
         GM_registerMenuCommand('Export conversation markup as HTML', exportHtml);
-    } else {
-        exportMarkdown();
     }
+
+    installPanel();
 })();
