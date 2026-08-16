@@ -14,8 +14,8 @@ It is useful when you want to:
 
 ## What it does
 
-- reads the conversation currently visible in ChatGPT
-- adds a small **Export** panel to the page, with a **Markdown** and an **HTML** button
+- adds a small **Export** panel to the page, showing how many conversation turns it can see
+- reads the conversation currently visible in ChatGPT when you click one of its two buttons
 - **Markdown** extracts the user and assistant messages and downloads a `.md` file with basic metadata
 - **HTML** downloads the conversation's own markup instead, which is what you want when the exporter needs fixing
 
@@ -29,7 +29,9 @@ Both files are named for the same timestamp and chat title, so a pair exported t
 4. The **Export** panel appears at the right of the page.
 5. Click **Markdown** or **HTML**. The file downloads immediately.
 
-The panel stays as you move between conversations, and disappears on pages that have no conversation on them.
+The panel stays put as you move between conversations, and reports what it can see: a turn count when there is a conversation, or `No conversation` with the buttons disabled when there is not.
+
+It deliberately remains visible even with nothing to export, so that "the script is loaded and waiting" never looks the same as "the script did not load".
 
 ### Running it from a userscript manager
 
