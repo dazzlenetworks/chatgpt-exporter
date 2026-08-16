@@ -21,6 +21,19 @@ It is useful when you want to:
 
 Both files are named for the same timestamp and chat title, so a pair exported together sorts side by side.
 
+### The Markdown frontmatter
+
+Each Markdown export opens with a short YAML block:
+
+| Field | Meaning |
+| --- | --- |
+| `created` | When the export was made |
+| `conversation_started` | When the chat itself began |
+| `title` | The conversation's title, or its opening words where it has none |
+| `source` | The page the export was taken from |
+
+**`conversation_started` is frequently absent, and that is not a fault.** It is derived from the conversation's own id, which ChatGPT only assigns to a signed-in chat. Exporting a logged-out conversation leaves nothing to derive it from, so the field is left out rather than filled with a guess — an omitted date is honest, whereas a plausible wrong one is not.
+
 ## Usage
 
 1. Open a ChatGPT conversation in your browser.
