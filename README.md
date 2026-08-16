@@ -14,11 +14,11 @@ It is useful when you want to:
 
 ## What it does
 
-- adds a small **Export** panel to the page, showing how many conversation turns it can see
+- adds a small vertical rail to the right of the page, showing how many conversation turns it can see
 - reads the conversation currently visible in ChatGPT when you press one of its buttons
-- **Preview** shows the Markdown on screen without saving anything
-- **Markdown** extracts the user and assistant messages and downloads a `.md` file with basic metadata
-- **HTML** downloads the conversation's own markup instead, which is what you want when the exporter needs fixing
+- **Preview** (eye) shows the Markdown on screen without saving anything
+- **.md** extracts the user and assistant messages and downloads a Markdown file with basic metadata
+- **.html** downloads the conversation's own markup instead, which is what you want when the exporter needs fixing
 
 Both files are named for the same timestamp and chat title, so a pair exported together sorts side by side.
 
@@ -40,18 +40,24 @@ Each Markdown export opens with a short YAML block:
 1. Open a ChatGPT conversation in your browser.
 2. Open browser developer tools.
 3. Paste the contents of `chatgpt-export.js` into the console and run it.
-4. The **Export** panel appears at the right of the page.
-5. Press **Preview** to read the Markdown first, or **Markdown** / **HTML** to download it straight away.
+4. The **ChatGPT Exporter** rail appears at the right of the page.
+5. Press the eye to read the Markdown first, or **.md** / **.html** to download it straight away.
 
 **Preview** opens the export on screen and writes nothing to disk. It shows the document exactly as the Markdown export would write it — the same text, from the same code — along with the filename it would be saved under. Dismiss it with the **Close** button, the `Escape` key, or a click outside it.
 
-The panel stays put as you move between conversations, and reports what it can see: a turn count when there is a conversation, or `No conversation` with the buttons disabled when there is not.
+### Reading the rail
 
-It deliberately remains visible even with nothing to export, so that "the script is loaded and waiting" never looks the same as "the script did not load".
+The rail carries its name, a status dot, and three buttons.
+
+**The green dot reports the script, not the conversation**, so it is always lit. It means the exporter loaded and is running on this page. Beside it, a number appears giving the count of conversation turns it can currently see — and no number at all when there is no conversation.
+
+The three buttons are **disabled and dimmed whenever there is nothing to export**, and become active as soon as there are turns.
+
+The rail stays put as you move between conversations, and remains visible even where there is nothing to export — so that "loaded and waiting" never looks the same as "did not load at all". If the rail is missing entirely, the script is not running.
 
 ### Running it from a userscript manager
 
-The script also works unmodified under Violentmonkey, Tampermonkey or similar. Loaded that way it does not export on its own — it paints the same panel, and additionally registers both exports as menu commands in case a future ChatGPT stylesheet ever hides the panel.
+The script also works unmodified under Violentmonkey, Tampermonkey or similar. Loaded that way it does not export on its own — it paints the same rail, and additionally registers all three actions as menu commands in case a future ChatGPT stylesheet ever hides the rail.
 
 It does not ship with a userscript header; add `@match https://chatgpt.com/*` yourself if you want that.
 
