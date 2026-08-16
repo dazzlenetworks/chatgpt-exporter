@@ -681,6 +681,12 @@
             'font:400 13px/1.4 ui-sans-serif,system-ui,sans-serif'
         ].join(';');
 
+        // The overlay lives outside the rail, so it carries its own copy of the
+        // palette. Applied after cssText for the same reason the rail's is, and
+        // read once at open — a modal is transient enough that following a theme
+        // change mid-view is not worth the machinery.
+        applyPalette(backdrop);
+
         // Only a click on the backdrop itself, so a click that lands inside the
         // dialog and bubbles out does not dismiss it.
         backdrop.addEventListener('click', event => {
@@ -766,14 +772,74 @@
 
     const PANEL_ID = 'chatgpt-exporter-panel';
 
-    // Colours resolve through ChatGPT's own theme variables, so the rail follows
-    // light and dark without this script tracking either. The literal after each
-    // comma is what shows if those variable names are ever renamed.
-    const SURFACE = 'var(--token-main-surface-primary,#ffffff)';
-    const BORDER = 'var(--token-border-light,rgba(127,127,127,.4))';
-    const TEXT = 'var(--token-text-primary,#0d0d0d)';
-    const MUTED = 'var(--token-text-secondary,#5d5d5d)';
-    const READY = 'var(--token-text-accent,#10a37f)';
+    // Our own palette, applied to our own elements as custom properties.
+    //
+    // An earlier version read ChatGPT's theme tokens directly. Every one of those
+    // names had been renamed, which produced no error at all — just a light rail on
+    // a dark page, for a whole day. Naming another vendor's private variables is a
+    // bet that has to be re-won on every release, and it loses silently.
+    const PALETTES = {
+        dark: { surface: '#303030', text: '#ececec', muted: '#9b9b9b', border: 'rgba(150,150,150,.35)' },
+        light: { surface: '#ffffff', text: '#0d0d0d', muted: '#5d5d5d', border: 'rgba(120,120,120,.35)' }
+    };
+
+    // The readiness dot is the same green in both, because it reports this script
+    // rather than the page it is standing on.
+    const READY = '#10a37f';
+
+    const SURFACE = 'var(--cge-surface)';
+    const BORDER = 'var(--cge-border)';
+    const TEXT = 'var(--cge-text)';
+    const MUTED = 'var(--cge-muted)';
+
+    // Decide light or dark without naming anything ChatGPT owns.
+    function detectScheme() {
+        // `color-scheme` is a CSS standard rather than a vendor token — browsers
+        // use it for scrollbars and form controls, so it cannot quietly become
+        // something else the way `--token-*` did. It reads `dark` on ChatGPT today.
+        const declared = getComputedStyle(document.documentElement).colorScheme || '';
+        const wantsDark = /\bdark\b/.test(declared);
+        const wantsLight = /\blight\b/.test(declared);
+        if (wantsDark !== wantsLight) return wantsDark ? 'dark' : 'light';
+
+        // Unset, or "light dark" meaning either is acceptable: ask the page what it
+        // actually looks like.
+        const sampled = sampleScheme();
+        if (sampled) return sampled;
+
+        // The operating system, consulted last because a site can and does override
+        // it — trusting this first would get a light-themed page wrong on a dark
+        // desktop.
+        return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function sampleScheme() {
+        const parts = getComputedStyle(document.body).backgroundColor.match(/[\d.]+/g);
+        if (!parts) return null;
+
+        // A transparent body says nothing about the theme.
+        if (parts.length > 3 && Number(parts[3]) === 0) return null;
+
+        const [r, g, b] = parts.map(Number);
+        return (r * 0.2126 + g * 0.7152 + b * 0.0722) < 128 ? 'dark' : 'light';
+    }
+
+    // Paints the palette onto one of our own elements, which its descendants then
+    // inherit. Nothing is written to the page's own nodes.
+    function applyPalette(element) {
+        const scheme = detectScheme();
+
+        // Repainting is skipped when nothing changed, for the reason item 18
+        // documented: this runs from an observer, and writing unconditionally is
+        // how a panel ends up updating itself forever.
+        if (element.dataset.cgeScheme === scheme) return;
+        element.dataset.cgeScheme = scheme;
+
+        const palette = PALETTES[scheme];
+        Object.keys(palette).forEach(key => {
+            element.style.setProperty(`--cge-${key}`, palette[key]);
+        });
+    }
 
     // Drawn inline rather than fetched: ChatGPT's connect-src blocks requests to
     // anywhere we could host them, and `currentColor` makes them follow the theme
@@ -858,6 +924,10 @@
             'box-shadow:0 2px 10px rgba(0,0,0,.25)',
             'font:500 12px/1.2 ui-sans-serif,system-ui,sans-serif'
         ].join(';');
+
+        // After cssText, never before: assigning cssText replaces the whole inline
+        // declaration and would wipe the custom properties the palette sets.
+        applyPalette(panel);
 
         // Broken over two lines, which in a vertical writing mode makes two columns
         // rather than a longer run. It costs no width — the rail is as wide as its
@@ -955,6 +1025,7 @@
             document.body.appendChild(panel);
         }
 
+        applyPalette(panel);
         updatePanelState(panel);
     }
 
@@ -964,10 +1035,23 @@
         // Coalesce bursts of mutation — streaming a reply fires these continuously,
         // and the check only needs to run once things settle.
         let pending = 0;
-        new MutationObserver(() => {
+        const schedule = () => {
             clearTimeout(pending);
             pending = setTimeout(syncPanel, 300);
-        }).observe(document.body, { childList: true, subtree: true });
+        };
+
+        new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+
+        // Switching theme changes attributes on the root element and need not touch
+        // the body's children at all, so the observer above can miss it entirely.
+        new MutationObserver(schedule).observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class', 'style', 'data-theme', 'data-chat-theme']
+        });
+
+        // And the operating system's preference, for the case where the page is
+        // following it rather than declaring its own.
+        matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule);
     }
 
     // The panel is the interface in both modes. Under a userscript manager it is
