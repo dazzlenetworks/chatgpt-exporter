@@ -367,6 +367,23 @@
     }
 
 
+    // ChatGPT renders an inline "entity" reference — a film, book, person or
+    // similar — as a button that opens a details dialog rather than as a link.
+    // The visible name sits in a data-assistant-entity-name span, and the button
+    // carries no URL, only a payload describing what to look up, so there is
+    // nothing to link to: the reference is kept as its plain name. This must run
+    // before stripNoise, which would otherwise remove the button as interface
+    // chrome and take the name — and any surrounding emphasis — with it.
+    function extractEntityReferences(container) {
+        container.querySelectorAll('[data-assistant-entity-trigger]').forEach(button => {
+            const nameEl = button.querySelector('[data-assistant-entity-name]') || button;
+            const name = cleanText(nameEl.textContent || '');
+            replaceElementWithMarkdown(button, name);
+        });
+
+        return container;
+    }
+
     function stripNoise(container) {
         // Remove common interface elements that should not appear in exports.
         container.querySelectorAll([
@@ -435,6 +452,7 @@
         const processed = container.cloneNode(true);
         normalizeWhitespace(processed);
         extractCodeBlocks(processed);
+        extractEntityReferences(processed);
         stripNoise(processed);
         extractImages(processed);
         extractHorizontalRules(processed);
