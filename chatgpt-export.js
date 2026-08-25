@@ -384,6 +384,73 @@
         return container;
     }
 
+    // ChatGPT's web-search citations are no longer <a> links but buttons whose
+    // data-assistant-sources-payload is a JSON array of {attribution, title, url}.
+    // The inline pills stay dropped — a citation mid-sentence is clutter in a
+    // reading copy — but the reference URLs are worth keeping, so the message-level
+    // "sources_footnote" button, which is ChatGPT's own curated list, becomes a
+    // Sources section at the end of the turn. Where a message carries inline
+    // citations but no footnote, the inline payloads are aggregated instead so
+    // nothing is lost. Runs before stripNoise, which removes the buttons.
+    function extractSourceCitations(container) {
+        const footnotes = Array.from(
+            container.querySelectorAll('[data-content-reference-type="sources_footnote"]')
+        );
+        const sources = dedupeByUrl(
+            footnotes.length ? footnotes.flatMap(readSourcesPayload) : allInlineSources(container)
+        );
+        footnotes.forEach(footnote => footnote.remove());
+
+        if (!sources.length) return container;
+
+        const items = sources.map(source => {
+            const url = stripChatgptTracking(source.url);
+            const label = citationLabel(source) || url;
+            const target = /[()\s]/.test(url) ? `<${url}>` : url;
+            return `- [${label}](${target})`;
+        });
+
+        // One text node so the later block passes leave it alone; renderInline emits
+        // it verbatim and cleanText collapses the blank line it opens with.
+        container.appendChild(
+            document.createTextNode(`\n\n**Sources:**\n\n${items.join('\n')}\n`)
+        );
+        return container;
+    }
+
+    function readSourcesPayload(button) {
+        try {
+            const payload = JSON.parse(button.getAttribute('data-assistant-sources-payload') || '[]');
+            return Array.isArray(payload) ? payload.filter(source => source && source.url) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function allInlineSources(container) {
+        return Array.from(container.querySelectorAll('[data-assistant-sources-payload]'))
+            .flatMap(readSourcesPayload);
+    }
+
+    function dedupeByUrl(sources) {
+        const seen = new Set();
+        return sources.filter(source => {
+            if (seen.has(source.url)) return false;
+            seen.add(source.url);
+            return true;
+        });
+    }
+
+    // The title describes the page and makes the better archive label; the bare
+    // attribution is the fallback. Strip the brackets that would otherwise break
+    // the Markdown link label, and collapse any wrapping whitespace.
+    function citationLabel(source) {
+        return (source.title || source.attribution || '')
+            .replace(/[\[\]]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     function stripNoise(container) {
         // Remove common interface elements that should not appear in exports.
         container.querySelectorAll([
@@ -453,6 +520,7 @@
         normalizeWhitespace(processed);
         extractCodeBlocks(processed);
         extractEntityReferences(processed);
+        extractSourceCitations(processed);
         stripNoise(processed);
         extractImages(processed);
         extractHorizontalRules(processed);

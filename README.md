@@ -106,8 +106,9 @@ It currently handles ordinary conversation content fairly well, including:
 - code blocks
 - blockquotes
 - inline emphasis and inline code
-- links, including the inline source citations ChatGPT adds when it searches
-  the web — these export as ordinary Markdown links to the cited page
+- links — ordinary prose links export inline; the web-search source citations
+  ChatGPT adds are gathered into a **Sources** list at the end of each reply, as
+  Markdown links to the cited pages
 - inline entity references — the films, books, people and similar that ChatGPT
   renders as info-card buttons rather than links — these export as their plain name
 
