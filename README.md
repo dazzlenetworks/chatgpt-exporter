@@ -47,6 +47,12 @@ Each Markdown export opens with a short YAML block:
 
 The preview carries its own **.md** and **.html** buttons, so a conversation can be read and then exported without closing it. Both save under the filename shown in the preview's own header, and the preview stays open afterwards so the other format is still one click away. Dismiss it with **Close**, the `Escape` key, or a click outside it.
 
+### Reloading it in place
+
+Pasting the script again on a page where it is already running **reloads it** rather than stacking a second copy: the existing rail and its observers are torn down and a fresh rail is built from the new code. The console prints `reloaded` instead of `ready` to confirm it replaced the running copy.
+
+This is how you move to a newer version of the script without reloading the page — which matters when reloading would lose an unsaved conversation.
+
 ### Reading the rail
 
 The rail carries its name, a status dot, and three buttons.

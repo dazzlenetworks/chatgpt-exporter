@@ -1142,7 +1142,24 @@
         updatePanelState(panel);
     }
 
+    // A namespaced handle on window, so a later paste of this file can find the
+    // instance already running on the page and dispose it. ChatGPT's CSP blocks
+    // fetching or eval'ing an update, so re-pasting is the only way to load new
+    // code — and on a logged-out conversation a page reload would lose the chat, so
+    // re-pasting onto the live page is a real workflow rather than an edge case.
+    const GLOBAL_KEY = '__chatgptExporter';
+
+    // Returns true when it replaced an instance a previous paste left running,
+    // false on a first load — the caller reports which happened.
     function installPanel() {
+        // Dispose the previous paste's instance first, so the page ends up with
+        // exactly one rail wired to this code and one set of observers, rather than
+        // a stale rail whose buttons still call the old code and a second set of
+        // observers stacked on top.
+        const previous = window[GLOBAL_KEY];
+        const reloaded = !!(previous && typeof previous.teardown === 'function');
+        if (reloaded) previous.teardown();
+
         syncPanel();
 
         // Coalesce bursts of mutation — streaming a reply fires these continuously,
@@ -1153,18 +1170,37 @@
             pending = setTimeout(syncPanel, 300);
         };
 
-        new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+        const bodyObserver = new MutationObserver(schedule);
+        bodyObserver.observe(document.body, { childList: true, subtree: true });
 
         // Switching theme changes attributes on the root element and need not touch
         // the body's children at all, so the observer above can miss it entirely.
-        new MutationObserver(schedule).observe(document.documentElement, {
+        const rootObserver = new MutationObserver(schedule);
+        rootObserver.observe(document.documentElement, {
             attributes: true,
             attributeFilter: ['class', 'style', 'data-theme', 'data-chat-theme']
         });
 
         // And the operating system's preference, for the case where the page is
         // following it rather than declaring its own.
-        matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule);
+        const media = matchMedia('(prefers-color-scheme: dark)');
+        media.addEventListener('change', schedule);
+
+        // Everything this instance leaves on the page, gathered so the next paste
+        // removes all of it: the pending timer, both observers, the media listener,
+        // any open preview and its key handler, and the rail itself.
+        window[GLOBAL_KEY] = {
+            teardown() {
+                clearTimeout(pending);
+                bodyObserver.disconnect();
+                rootObserver.disconnect();
+                media.removeEventListener('change', schedule);
+                closePreview();
+                document.getElementById(PANEL_ID)?.remove();
+            }
+        };
+
+        return reloaded;
     }
 
     // The panel is the interface in both modes. Under a userscript manager it is
@@ -1178,15 +1214,18 @@
         GM_registerMenuCommand('Export conversation markup as HTML', exportHtml);
     }
 
-    installPanel();
+    const reloaded = installPanel();
 
     // The value this evaluates to is what a console prints after a paste, and for
     // that path it is the only confirmation anything happened — an IIFE returning
-    // nothing prints `undefined`, which reads like failure.
+    // nothing prints `undefined`, which reads like failure. It also says whether
+    // this paste replaced a running instance, which is the confirmation the live
+    // re-paste workflow needs.
     //
     // Returned rather than logged on purpose. Under a userscript manager this file
     // runs on every page view, where a log line each time would be noise, while an
     // unread completion value costs nothing.
     const ready = findTurns().length;
-    return `ChatGPT Exporter ready — ${ready ? `${ready} turn${ready === 1 ? '' : 's'}` : 'no conversation'}`;
+    const turns = ready ? `${ready} turn${ready === 1 ? '' : 's'}` : 'no conversation';
+    return `ChatGPT Exporter ${reloaded ? 'reloaded' : 'ready'} — ${turns}`;
 })();
