@@ -139,6 +139,6 @@ It works with both the desktop site and the mobile web app layouts. Because it s
 - Better handling for tables, images, and other rich content
 - Package it for one-click installation
 
-## License
+## Licence
 
-MIT
+MIT © [Dazzle Networks](https://dazzlenetworks.com) — see [LICENSE](LICENSE).
