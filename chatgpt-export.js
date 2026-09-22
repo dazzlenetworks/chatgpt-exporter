@@ -535,10 +535,83 @@
 
 
     // Conversation turns are identified by ChatGPT's role attribute. The
-    // desktop site uses `data-message-author-role`; the mobile web app uses
+    // classic layout uses `data-message-author-role`; the newer stylex one uses
     // `data-message-role`. Support both so exports work across layouts.
+    //
+    // This finds what is *rendered*, which is not the same as what the
+    // conversation contains — see conversationInventory below.
     function findTurns() {
         return document.querySelectorAll('[data-message-author-role], [data-message-role]');
+    }
+
+    // What the conversation holds, against what is rendered right now.
+    //
+    // ChatGPT sheds turns two ways. A **virtualised** turn keeps its container
+    // and drops its content, so it is in the document but invisible to
+    // findTurns; a **paginated-out** turn is not in the document at all. Either
+    // produces an export that is silently short, which is this script's worst
+    // failure: the Markdown is well-formed, the turns present are correct, and
+    // nothing says the rest is missing.
+    //
+    // The container is the inventory. Verified against a real truncated capture
+    // on 9/22/2026: strip `client-created-root`, dedupe, and the nth container
+    // is `data-testid="conversation-turn-n"` — dense and 1:1. That capture was
+    // rendering 8 turns of the 20 it was holding.
+    function conversationInventory() {
+        const ids = new Set();
+
+        document.querySelectorAll('[data-turn-id-container]').forEach(el => {
+            const id = el.getAttribute('data-turn-id-container');
+
+            // ChatGPT's anchor for a freshly created conversation. It is a
+            // container like the others and carries no message, so counting it
+            // would report every conversation as one turn short.
+            if (id && id !== 'client-created-root') ids.add(id);
+        });
+
+        const loaded = findTurns().length;
+
+        // No containers at all means a layout this does not know — the stylex
+        // one, or whatever follows it. Deliberately not reported as complete:
+        // nothing is known about how those shed turns, and a check that answers
+        // confidently about markup nobody has observed is a check that passes
+        // while proving nothing.
+        if (!ids.size) {
+            return { verifiable: false, complete: false, loaded, total: loaded, unfetched: false };
+        }
+
+        // Completeness is decided by the count alone. The sentinel marks where
+        // ChatGPT fetches earlier turns, and it was absent from a complete
+        // capture and present in a truncated one — but those two captures are of
+        // different layouts, so that is not yet evidence that it goes away when a
+        // conversation is fully loaded. If it does not, letting it decide would
+        // mark every classic export incomplete. A false alarm on every export
+        // would be worse than the defect being fixed, so the weaker claim is the
+        // one made until a complete classic capture settles it.
+        const unfetched = !!document.querySelector('[data-testid="conversation-pagination-sentinel"]');
+
+        return { verifiable: true, complete: loaded >= ids.size, loaded, total: ids.size, unfetched };
+    }
+
+    // Said once per export or preview rather than from the observer that keeps the
+    // rail current: that runs on every mutation, and a console line per mutation
+    // is noise, which trains the reader to ignore the one line that mattered.
+    function reportCompleteness(inventory) {
+        if (!inventory.verifiable) {
+            console.warn(
+                'Export completeness could not be verified on this page layout. ' +
+                'This export holds every turn currently rendered, which may not be the whole conversation.'
+            );
+            return;
+        }
+
+        if (inventory.complete) return;
+
+        console.warn(
+            `Incomplete export: ${inventory.loaded} of ${inventory.total} turns are loaded.` +
+            (inventory.unfetched ? ' ChatGPT has more still to fetch, so the conversation may be longer than that.' : '') +
+            ' Scroll to load the rest, or export in parts and merge them.'
+        );
     }
 
     function downloadFile(filename, text, mimeType) {
@@ -627,12 +700,27 @@
         // which name other conversations.
         clone.querySelectorAll('script, nav, aside, a[href^="/c/"]').forEach(el => el.remove());
 
+        const inventory = conversationInventory();
+
+        reportCompleteness(inventory);
+
+        // The same note the Markdown frontmatter carries. This file has no
+        // frontmatter to put it in, and the provenance comment is already where a
+        // reader looks to find out what they are holding.
+        //
+        // Ahead of the URL rather than after it: it is the thing to notice first,
+        // and anything trailing a URL reads as part of it.
+        const shortfall = inventory.verifiable && !inventory.complete
+            ? ` INCOMPLETE: ${inventory.loaded} of ${inventory.total} turns.` +
+              (inventory.unfetched ? ' More were still unfetched.' : '')
+            : '';
+
         // A charset declaration so the file survives being opened later, and a
         // provenance comment so a folder of these can be told apart.
         const html = [
             '<!DOCTYPE html>',
             '<meta charset="utf-8">',
-            `<!-- ChatGPT conversation markup, exported ${formatCreatedFrontmatter(now)} from ${window.location.href} -->`,
+            `<!-- ChatGPT conversation markup.${shortfall} Exported ${formatCreatedFrontmatter(now)} from ${window.location.href} -->`,
             clone.outerHTML
         ].join('\n');
 
@@ -664,8 +752,30 @@
         }
 
         const started = conversationStarted();
+        const inventory = conversationInventory();
+
+        reportCompleteness(inventory);
 
         lines.push('---');
+
+        // First in the block, deliberately. Where an export is short that is the
+        // most important thing about the file, and a reader scanning the top
+        // should meet it before the fields describing what it contains.
+        //
+        // Nothing goes in the document body: exporting several times and merging
+        // them by hand is the only recovery available today, and a warning in the
+        // prose would have to be cleaned out of every piece.
+        if (inventory.verifiable && !inventory.complete) {
+            lines.push('incomplete: true');
+            lines.push(`turns_exported: ${inventory.loaded}`);
+            lines.push(`turns_in_conversation: ${inventory.total}`);
+
+            // The inventory counts containers, and a paginated-out turn has none.
+            // So where ChatGPT still has more to fetch, the total above is a floor
+            // rather than the count, and saying so costs one line.
+            if (inventory.unfetched) lines.push('more_turns_unfetched: true');
+        }
+
         lines.push(`created: ${created}`);
 
         // Kept separate from `created` rather than replacing it: one says when the
@@ -1069,9 +1179,14 @@
         // Its honest limit: it cannot report a broken exporter, because the code
         // that would change it is the code that failed. The rail being absent
         // altogether is what that failure looks like.
+        // A column rather than a row: the dot sits above the count instead of
+        // beside it. Inline, the dot and its gap leave the count 23px of the
+        // rail's 34, and `8/20` measures 23.9px — so the rendering that says how
+        // much is missing does not fit next to the dot, and moving the dot buys
+        // the 11px it needs for 13px of rail height.
         const status = document.createElement('div');
         status.setAttribute('data-exporter-status', '');
-        status.style.cssText = 'display:flex;align-items:center;gap:4px;height:11px;cursor:default;user-select:none';
+        status.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:3px;cursor:default;user-select:none';
 
         const dot = document.createElement('span');
         dot.style.cssText = `width:7px;height:7px;border-radius:999px;background:${READY};flex:none`;
@@ -1079,7 +1194,11 @@
 
         const count = document.createElement('span');
         count.setAttribute('data-exporter-count', '');
-        count.style.cssText = `font-size:11px;font-weight:700;line-height:1;color:${TEXT}`;
+
+        // Past about a hundred turns `x/y` outgrows the rail and widens it by a
+        // few pixels. That is survivable; `8 /` wrapping above `20` is not, and
+        // one declaration is the whole difference.
+        count.style.cssText = `font-size:11px;font-weight:700;line-height:1;white-space:nowrap;color:${TEXT}`;
         status.appendChild(count);
 
         panel.appendChild(status);
@@ -1098,20 +1217,35 @@
     // inert with nothing to export and live once there are turns. The count appears
     // beside the dot only when there is one to show.
     function updatePanelState(panel) {
-        const turns = findTurns().length;
-        const label = turns ? String(turns) : '';
+        const inventory = conversationInventory();
+        const turns = inventory.loaded;
+
+        // `x/y` only where the shortfall is actually known. A layout with no
+        // inventory keeps the bare count it has always shown, rather than a
+        // fraction invented out of the one number available.
+        const short = inventory.verifiable && !inventory.complete;
+        const label = !turns ? '' : short ? `${inventory.loaded}/${inventory.total}` : String(turns);
+
         const count = panel.querySelector('[data-exporter-count]');
+        const status = panel.querySelector('[data-exporter-status]');
+
+        // A bare `8/20` says something is wrong without saying what, so the
+        // explanation goes where a reader will look for it rather than in a
+        // console line they have no reason to open.
+        const hint = !turns ? ''
+            : short ? `${inventory.loaded} of ${inventory.total} turns loaded — scroll to load the rest`
+                : `${turns} conversation turn${turns === 1 ? '' : 's'}`;
 
         // Only write when it actually changed. This runs from a MutationObserver
         // watching the whole subtree, and replacing the text node is itself a
         // mutation — assigning unconditionally would retrigger the observer and
         // leave the rail updating itself forever.
         if (count.textContent !== label) count.textContent = label;
+        if (status.title !== hint) status.title = hint;
 
         // Take the count out of the layout entirely when empty. An empty span is
-        // still a flex item, so the row's gap would still be applied and would push
-        // the dot off the rail's centre — visible, because the dot is the only thing
-        // in the row at that point and has nothing to be balanced against.
+        // still a flex item, so the column's gap would still be applied and would
+        // leave the dot sitting above a few pixels of nothing.
         count.style.display = label ? '' : 'none';
 
         panel.querySelectorAll('button').forEach(button => {

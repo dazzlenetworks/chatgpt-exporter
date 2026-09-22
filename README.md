@@ -32,6 +32,10 @@ Each Markdown export opens with a short YAML block:
 | `conversation_started` | When the chat itself began |
 | `title` | The conversation's title, or its opening words where it has none |
 | `source` | The page the export was taken from |
+| `incomplete` | Present only when the export is short of the whole conversation |
+| `turns_exported` | How many turns this file contains |
+| `turns_in_conversation` | How many the conversation was holding |
+| `more_turns_unfetched` | Present when ChatGPT had still more to load, so the count above is a floor |
 
 **`conversation_started` is frequently absent, and that is not a fault.** It is derived from the conversation's own id, which ChatGPT only assigns to a signed-in chat. Exporting a logged-out conversation leaves nothing to derive it from, so the field is left out rather than filled with a guess — an omitted date is honest, whereas a plausible wrong one is not.
 
@@ -57,7 +61,9 @@ This is how you move to a newer version of the script without reloading the page
 
 The rail carries its name, a status dot, and three buttons.
 
-**The green dot reports the script, not the conversation**, so it is always lit. It means the exporter loaded and is running on this page. Beside it, a number appears giving the count of conversation turns it can currently see — and no number at all when there is no conversation.
+**The green dot reports the script, not the conversation**, so it is always lit. It means the exporter loaded and is running on this page. Beneath it, a number appears giving the count of conversation turns it can currently see — and no number at all when there is no conversation.
+
+**Where that number reads as a fraction, such as `8/20`, the conversation is only partly loaded** and an export taken now would be short by the difference. Hover it for the detail. See [Long conversations load in parts](#long-conversations-load-in-parts) below for what to do about it.
 
 The three buttons are **disabled and dimmed whenever there is nothing to export**, and become active as soon as there are turns.
 
@@ -103,6 +109,25 @@ Those removals are a safety net rather than the main defence: the sidebar, your 
 It does not capture the page's stylesheets, so the saved file will not look like ChatGPT. It is meant for reading markup, not for reading the conversation — use the Markdown export for that.
 
 ## Limitations
+
+### Long conversations load in parts
+
+**ChatGPT does not keep a whole conversation on the page.** Open one from your history and it renders only the most recent turns; earlier ones arrive as you scroll up. On a long conversation, scrolling up far enough starts dropping turns off the bottom again.
+
+The exporter can only export what the page is holding, so **an export taken without scrolling can be a fraction of the conversation** — and until now nothing said so. The Markdown was well-formed, the turns present were correct, and the loss was invisible.
+
+It is no longer silent:
+
+- the rail shows `8/20` instead of a bare count
+- the Markdown frontmatter carries `incomplete: true` and both numbers
+- the HTML export says so in its opening comment
+- the browser console warns, naming the same numbers
+
+**To get a complete export, scroll up until the rail stops rising, then export.** Where the conversation is too long for that, export in parts and merge them — the frontmatter in each file records which part it was.
+
+**On some ChatGPT layouts this cannot be checked at all**, and the console says so rather than guessing. The export still contains every turn on the page; what it cannot promise is that the page held all of them.
+
+### Content that exports imperfectly
 
 This project is intentionally lightweight.
 
