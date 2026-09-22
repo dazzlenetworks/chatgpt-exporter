@@ -34,8 +34,9 @@ Each Markdown export opens with a short YAML block:
 | `source` | The page the export was taken from |
 | `incomplete` | Present only when the export is short of the whole conversation |
 | `turns_exported` | How many turns this file contains |
-| `turns_in_conversation` | How many the conversation was holding |
-| `more_turns_unfetched` | Present when ChatGPT had still more to load, so the count above is a floor |
+| `turns_in_conversation` | How long the conversation is. Written only when that is actually known |
+| `turns_loaded` | Written instead, when ChatGPT has not finished fetching. How many turns the page held — a floor, not a length |
+| `more_turns_unfetched` | Present alongside `turns_loaded`, saying plainly that earlier turns had not been fetched |
 
 **`conversation_started` is frequently absent, and that is not a fault.** It is derived from the conversation's own id, which ChatGPT only assigns to a signed-in chat. Exporting a logged-out conversation leaves nothing to derive it from, so the field is left out rather than filled with a guess — an omitted date is honest, whereas a plausible wrong one is not.
 
@@ -112,18 +113,22 @@ It does not capture the page's stylesheets, so the saved file will not look like
 
 ### Long conversations load in parts
 
-**ChatGPT does not keep a whole conversation on the page.** Open one from your history and it renders only the most recent turns; earlier ones arrive as you scroll up. On a long conversation, scrolling up far enough starts dropping turns off the bottom again.
+**ChatGPT does not keep a whole conversation on the page**, and it withholds it in two different ways at once.
 
-The exporter can only export what the page is holding, so **an export taken without scrolling can be a fraction of the conversation** — and until now nothing said so. The Markdown was well-formed, the turns present were correct, and the loss was invisible.
+**It has not fetched the older turns.** Open a conversation from your history and only the most recent stretch exists in the page at all. Scrolling to the top fetches more, a page at a time, until there are none left.
+
+**And it only draws the turns near your viewport.** Even once everything has been fetched, the turns far from where you are sitting are emptied out again to keep the page fast. On a long conversation there is **no scroll position at which all of it is drawn** — a measured example held 40 turns and drew at most 17 of them at once, and only 5 when sitting at the bottom.
+
+The exporter can only export what the page has actually drawn, so **an export taken without scrolling can be a small fraction of the conversation.** Until recently nothing said so: the Markdown was well-formed, the turns present were correct, and the loss was invisible.
 
 It is no longer silent:
 
-- the rail shows `8/20` instead of a bare count
-- the Markdown frontmatter carries `incomplete: true` and both numbers
+- the rail shows `5/40` instead of a bare count — and `5/10+`, with a trailing `+`, while ChatGPT still has older turns to fetch and that second number is only what has arrived so far
+- the Markdown frontmatter carries `incomplete: true` with the counts, distinguishing a known length from a floor
 - the HTML export says so in its opening comment
 - the browser console warns, naming the same numbers
 
-**To get a complete export, scroll up until the rail stops rising, then export.** Where the conversation is too long for that, export in parts and merge them — the frontmatter in each file records which part it was.
+**To get the most complete export available, scroll to the top until the `+` disappears, then export.** That tells you everything has been fetched. Because of the drawing limit above, a long conversation will still export short — so export in parts and merge them, and the frontmatter in each file records what it held.
 
 **On some ChatGPT layouts this cannot be checked at all**, and the console says so rather than guessing. The export still contains every turn on the page; what it cannot promise is that the page held all of them.
 

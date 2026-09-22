@@ -580,17 +580,30 @@
             return { verifiable: false, complete: false, loaded, total: loaded, unfetched: false };
         }
 
-        // Completeness is decided by the count alone. The sentinel marks where
-        // ChatGPT fetches earlier turns, and it was absent from a complete
-        // capture and present in a truncated one — but those two captures are of
-        // different layouts, so that is not yet evidence that it goes away when a
-        // conversation is fully loaded. If it does not, letting it decide would
-        // mark every classic export incomplete. A false alarm on every export
-        // would be worse than the defect being fixed, so the weaker claim is the
-        // one made until a complete classic capture settles it.
+        // The sentinel marks where ChatGPT fetches earlier turns, and it goes away
+        // once there are none left to fetch. Verified against the live site on
+        // 9/22/2026: a 40-turn conversation reached the top through four fetches
+        // and the sentinel cleared as the last one landed.
+        //
+        // So its presence decides on its own, and it has to — a turn that has not
+        // been fetched has no container, so the count below cannot see it. On a
+        // fresh load of that conversation the count was 10.
         const unfetched = !!document.querySelector('[data-testid="conversation-pagination-sentinel"]');
 
-        return { verifiable: true, complete: loaded >= ids.size, loaded, total: ids.size, unfetched };
+        // Which is also why `total` is a floor rather than a length while the
+        // sentinel is up. ChatGPT creates containers a page of ten at a time as
+        // the scroller reaches the top, and renumbers `conversation-turn-N` across
+        // the whole loaded set each time a page lands — so neither the container
+        // count nor the highest index says how long the conversation is. Only the
+        // sentinel clearing does.
+        return {
+            verifiable: true,
+            complete: loaded >= ids.size && !unfetched,
+            loaded,
+            total: ids.size,
+            totalIsFloor: unfetched,
+            unfetched
+        };
     }
 
     // Said once per export or preview rather than from the observer that keeps the
@@ -608,9 +621,13 @@
         if (inventory.complete) return;
 
         console.warn(
-            `Incomplete export: ${inventory.loaded} of ${inventory.total} turns are loaded.` +
-            (inventory.unfetched ? ' ChatGPT has more still to fetch, so the conversation may be longer than that.' : '') +
-            ' Scroll to load the rest, or export in parts and merge them.'
+            `Incomplete export: ${inventory.loaded} of ` +
+            (inventory.totalIsFloor ? `at least ${inventory.total}` : String(inventory.total)) +
+            ' turns are loaded.' +
+            (inventory.totalIsFloor
+                ? ' ChatGPT has not fetched the earlier ones yet, so the conversation is longer than that number.'
+                : '') +
+            ' Scroll to the top to load the rest, then export.'
         );
     }
 
@@ -711,8 +728,10 @@
         // Ahead of the URL rather than after it: it is the thing to notice first,
         // and anything trailing a URL reads as part of it.
         const shortfall = inventory.verifiable && !inventory.complete
-            ? ` INCOMPLETE: ${inventory.loaded} of ${inventory.total} turns.` +
-              (inventory.unfetched ? ' More were still unfetched.' : '')
+            ? ` INCOMPLETE: ${inventory.loaded} of ` +
+              (inventory.totalIsFloor
+                  ? `at least ${inventory.total} turns; ChatGPT had not fetched the earlier ones.`
+                  : `${inventory.total} turns.`)
             : '';
 
         // A charset declaration so the file survives being opened later, and a
@@ -768,7 +787,15 @@
         if (inventory.verifiable && !inventory.complete) {
             lines.push('incomplete: true');
             lines.push(`turns_exported: ${inventory.loaded}`);
-            lines.push(`turns_in_conversation: ${inventory.total}`);
+
+            // Two different keys rather than one, because they are two different
+            // claims. `turns_in_conversation` says how long the conversation is
+            // and is only written once the sentinel has cleared and that is known.
+            // While ChatGPT still has pages to fetch, all that can honestly be
+            // stated is how many turns the page has so far — a number that grows
+            // as you scroll, and that a reader must not mistake for a length.
+            if (inventory.totalIsFloor) lines.push(`turns_loaded: ${inventory.total}`);
+            else lines.push(`turns_in_conversation: ${inventory.total}`);
 
             // The inventory counts containers, and a paginated-out turn has none.
             // So where ChatGPT still has more to fetch, the total above is a floor
@@ -1224,7 +1251,14 @@
         // inventory keeps the bare count it has always shown, rather than a
         // fraction invented out of the one number available.
         const short = inventory.verifiable && !inventory.complete;
-        const label = !turns ? '' : short ? `${inventory.loaded}/${inventory.total}` : String(turns);
+
+        // The trailing `+` is what stops `5/10` being a lie. While ChatGPT still
+        // has pages to fetch, the number after the slash is what the page holds so
+        // far and grows as you scroll — on a 40-turn conversation it reads 10 on a
+        // fresh load. One character says "at least" and costs 6px of the rail.
+        const label = !turns ? ''
+            : short ? `${inventory.loaded}/${inventory.total}${inventory.totalIsFloor ? '+' : ''}`
+                : String(turns);
 
         const count = panel.querySelector('[data-exporter-count]');
         const status = panel.querySelector('[data-exporter-status]');
@@ -1233,7 +1267,9 @@
         // explanation goes where a reader will look for it rather than in a
         // console line they have no reason to open.
         const hint = !turns ? ''
-            : short ? `${inventory.loaded} of ${inventory.total} turns loaded — scroll to load the rest`
+            : short
+                ? `${inventory.loaded} of ${inventory.totalIsFloor ? 'at least ' : ''}${inventory.total} turns loaded` +
+                  ' — scroll to the top to load the rest'
                 : `${turns} conversation turn${turns === 1 ? '' : 's'}`;
 
         // Only write when it actually changed. This runs from a MutationObserver
