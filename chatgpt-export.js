@@ -320,6 +320,52 @@
         return container;
     }
 
+    // Tables become GitHub-flavoured Markdown tables. ChatGPT's newer layout wraps
+    // every cell's content in a <p>, so a cell is rendered as its paragraphs
+    // joined with <br>: a Markdown cell cannot hold a line break, and a pipe
+    // inside one would end it early. The first row is the header whether or not
+    // its cells are <th>, because a Markdown table cannot exist without one.
+    // Runs after inline code has become backtick text, so code in a cell survives.
+    function extractTables(container) {
+        container.querySelectorAll('table').forEach(table => {
+            const rows = Array.from(table.querySelectorAll('tr'))
+                .filter(row => row.closest('table') === table)
+                .map(row => Array.from(row.children)
+                    .filter(cell => /^t[hd]$/i.test(cell.tagName))
+                    .map(renderTableCell));
+
+            const width = Math.max(0, ...rows.map(cells => cells.length));
+            if (!width) {
+                table.remove();
+                return;
+            }
+
+            const line = cells => {
+                const padded = cells.concat(Array(width - cells.length).fill(''));
+                return `| ${padded.join(' | ')} |`;
+            };
+
+            const markdown = [
+                line(rows[0]),
+                line(Array(width).fill('---')),
+                ...rows.slice(1).map(line)
+            ].join('\n');
+
+            replaceElementWithMarkdown(table, `\n\n${markdown}\n\n`);
+        });
+
+        return container;
+    }
+
+    function renderTableCell(cell) {
+        return cleanText(renderInline(cell))
+            .split(/\n+/)
+            .map(part => part.trim())
+            .filter(Boolean)
+            .join('<br>')
+            .replace(/\|/g, '\\|');
+    }
+
     function extractInlineCode(container) {
         container.querySelectorAll('code').forEach(code => {
             if (code.closest('pre')) return;
@@ -561,6 +607,7 @@
         extractHorizontalRules(processed);
         extractHeadings(processed);
         extractInlineCode(processed);
+        extractTables(processed);
         extractLists(processed);
         extractBlockquotes(processed);
 

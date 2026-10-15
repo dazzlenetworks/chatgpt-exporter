@@ -147,9 +147,10 @@ It currently handles ordinary conversation content fairly well, including:
   Markdown links to the cited pages
 - inline entity references — the films, books, people and similar that ChatGPT
   renders as info-card buttons rather than links — these export as their plain name
+- tables — exported as Markdown tables, with a cell's separate paragraphs joined
+  by `<br>`, since a Markdown table cell cannot hold a line break
 
 Some advanced content may still export imperfectly, including:
-- tables
 - task lists
 - footnotes
 - math
@@ -166,7 +167,7 @@ It works with both the desktop site and the mobile web app layouts. Because it s
 ## Roadmap
 
 - Improve formatting preservation in exported chats
-- Better handling for tables, images, and other rich content
+- Better handling for images and other rich content
 - Package it for one-click installation
 
 ## Licence
