@@ -698,7 +698,9 @@
                 .map(line => `> ${line}`)
                 .join('\n');
 
-            replaceElementWithMarkdown(blockquote, `\n${quoted}\n`);
+            // A blank line either side, for the reason extractLists gives: the
+            // newer layout has no whitespace between blocks to supply one.
+            replaceElementWithMarkdown(blockquote, `\n\n${quoted}\n\n`);
         });
 
         return container;
