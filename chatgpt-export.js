@@ -558,6 +558,35 @@
         return container;
     }
 
+    // A reply can end with a form of multiple-choice questions: each question a
+    // paragraph, its options a radio group. The options carry no separators, so
+    // left alone they run together on one line, and the next question with them.
+    // Each group becomes a bullet list under its question. No option is marked
+    // chosen: the first radio of a group is checked by default, which is the
+    // widget's resting state rather than an answer anybody gave.
+    function extractRadioGroups(container) {
+        container.querySelectorAll('[role="radiogroup"], [data-d-component="radio-group"]').forEach(group => {
+            if (group.parentElement?.closest('[role="radiogroup"], [data-d-component="radio-group"]')) return;
+
+            let options = Array.from(group.querySelectorAll('[data-d-component="radio"], [role="radio"]'));
+            if (!options.length) options = Array.from(group.querySelectorAll('label'));
+
+            const items = options
+                .map(option => cleanText(renderInline(option)).replace(/\s*\n\s*/g, ' '))
+                .filter(Boolean)
+                .map(text => `- ${text}`);
+
+            if (!items.length) {
+                group.remove();
+                return;
+            }
+
+            replaceElementWithMarkdown(group, `\n\n${items.join('\n')}\n\n`);
+        });
+
+        return container;
+    }
+
     function extractBlockquotes(container) {
         container.querySelectorAll('blockquote').forEach(blockquote => {
             const text = cleanText(renderInline(blockquote));
@@ -608,6 +637,7 @@
         extractEntityReferences(processed);
         extractSourceCitations(processed);
         stripNoise(processed);
+        extractRadioGroups(processed);
         extractImages(processed);
         extractHorizontalRules(processed);
         extractHeadings(processed);
