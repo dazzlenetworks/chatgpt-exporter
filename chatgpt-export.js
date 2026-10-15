@@ -614,7 +614,12 @@
             // An image inside a link is decorative in ChatGPT's inline
             // citations — the source's favicon beside its name — so a
             // placeholder there would only clutter the link label.
-            if (el.closest('a')) {
+            //
+            // The newer layout also cites a source as a chip outside any link: a
+            // favicon beside the source's title. The chip's markup holds no URL for
+            // the source, only the favicon's, so the title is all there is to keep
+            // and the favicon goes the same way.
+            if (el.closest('a, [data-d-component="favicon"]')) {
                 el.remove();
                 return;
             }
