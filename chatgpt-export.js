@@ -233,16 +233,51 @@
         header.querySelectorAll('.cm-editor, button, svg').forEach(el => el.remove());
         const text = (header.textContent || '').replace(/\s+/g, ' ').trim();
 
-        // A language tag is one short token. Anything longer means the header was
-        // not found and we are looking at interface text, so take nothing.
+        return languageToken(text);
+    }
+
+    // A language tag is one short token. Anything longer means the header was
+    // not found and we are looking at interface text, so take nothing.
+    function languageToken(text) {
         return /^[a-z0-9+#.-]{1,15}$/i.test(text) ? text.toLowerCase() : '';
+    }
+
+    // The component layout has neither a language-* class nor a CodeMirror
+    // header. It wraps the block as <div><span>python</span><pre>…</pre></div>,
+    // so the label is a sibling of the <pre> rather than anything inside it. Taken
+    // only when the wrapper holds that one label and the block and nothing else —
+    // in the classic layout a <pre>'s parent is the whole message, which never
+    // fits. The label element is returned so it can be removed; left in place it
+    // would also export as a paragraph above the fence.
+    function readSiblingLabel(pre) {
+        const parent = pre.parentElement;
+        if (!parent) return null;
+
+        const others = Array.from(parent.children).filter(child => child !== pre);
+        if (others.length !== 1 || others[0].nextElementSibling !== pre) return null;
+
+        const label = others[0];
+        const strayText = Array.from(parent.childNodes).some(node =>
+            node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+        if (strayText) return null;
+
+        const lang = languageToken((label.textContent || '').trim());
+        return lang ? { lang, label } : null;
     }
 
     function extractCodeBlocks(container) {
         container.querySelectorAll('pre').forEach(pre => {
             const codeEl = pre.querySelector('code');
             const code = readCodeText(pre, codeEl);
-            const lang = readCodeLanguage(pre, codeEl);
+            let lang = readCodeLanguage(pre, codeEl);
+
+            if (!lang) {
+                const sibling = readSiblingLabel(pre);
+                if (sibling) {
+                    lang = sibling.lang;
+                    sibling.label.remove();
+                }
+            }
 
             // Use a fence longer than the longest run of backticks inside the
             // code so embedded fences (e.g. a Markdown sample containing its
