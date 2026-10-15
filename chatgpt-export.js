@@ -1195,34 +1195,43 @@
             'white-space:nowrap'
         ].join(';');
 
+        // The header's controls are all text buttons of one shape. The rail's
+        // icon-over-label tiles suit its column, but in a row beside a text
+        // button they stood nine pixels taller and read as a different kind of
+        // thing.
+        const textButton = (label, ariaLabel, handler) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            if (ariaLabel) button.setAttribute('aria-label', ariaLabel);
+            button.style.cssText = [
+                'flex:none',
+                'padding:4px 10px',
+                'border-radius:6px',
+                'cursor:pointer',
+                'font:inherit',
+                `border:1px solid ${border}`,
+                'background:transparent',
+                `color:${text}`
+            ].join(';');
+            button.addEventListener('click', handler);
+            return button;
+        };
+
         // Escape and clicking away both work, but neither announces itself. A
         // visible control is the only dismissal a first-time user can see.
-        const close = document.createElement('button');
-        close.type = 'button';
-        close.textContent = 'Close';
-        close.style.cssText = [
-            'flex:none',
-            'padding:4px 10px',
-            'border-radius:6px',
-            'cursor:pointer',
-            'font:inherit',
-            `border:1px solid ${border}`,
-            'background:transparent',
-            `color:${text}`
-        ].join(';');
-        close.addEventListener('click', closePreview);
+        const close = textButton('Close', null, closePreview);
 
-        // The same tiles as the rail, so the two surfaces read as one tool. Both
-        // are handed the moment the header was built from, so pressing one here
-        // writes the file whose name is on display beside it — deriving a fresh
-        // moment would rename the file out from under the label.
+        // Both are handed the moment the header was built from, so pressing one
+        // here writes the file whose name is on display beside it — deriving a
+        // fresh moment would rename the file out from under the label.
         //
         // The overlay stays open afterwards: both formats are plausibly wanted from
         // one reading, and closing would remove the thing being checked.
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex;align-items:center;gap:6px;flex:none';
-        actions.appendChild(buildTile(ICONS.markdown, '.md', 'Export the conversation as Markdown', () => exportMarkdown(now)));
-        actions.appendChild(buildTile(ICONS.html, '.html', 'Export the conversation markup as HTML', () => exportHtml(now)));
+        actions.appendChild(textButton('.md', 'Export the conversation as Markdown', () => exportMarkdown(now)));
+        actions.appendChild(textButton('.html', 'Export the conversation markup as HTML', () => exportHtml(now)));
         actions.appendChild(close);
 
         header.appendChild(name);
