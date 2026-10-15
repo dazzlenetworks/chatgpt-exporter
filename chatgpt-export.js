@@ -1,9 +1,27 @@
+// ==UserScript==
+// @name         ChatGPT Exporter
+// @namespace    https://github.com/dazzlenetworks/chatgpt-exporter
+// @version      2026.10.14
+// @description  Export the open ChatGPT conversation to Markdown or HTML.
+// @match        https://chatgpt.com/*
+// @grant        GM_registerMenuCommand
+// @updateURL    https://raw.githubusercontent.com/dazzlenetworks/chatgpt-exporter/master/chatgpt-export.js
+// @downloadURL  https://raw.githubusercontent.com/dazzlenetworks/chatgpt-exporter/master/chatgpt-export.js
+// @license      MIT
+// ==/UserScript==
+
 /*
  * ChatGPT Exporter
  *
  * Paste this script into the browser console while viewing a ChatGPT
  * conversation page. It will extract visible conversation turns and download
- * them as a Markdown file.
+ * them as a Markdown file. The block above is for userscript managers, which
+ * read it to install the script and to keep it updated; a console paste
+ * treats it as comments.
+ *
+ * A userscript manager only takes an update when @version goes up, so raise it
+ * with every change to this file that should reach installed copies. It is the
+ * date of the change, with a further .1, .2 for later changes the same day.
  *
  * Notes:
  * - This script depends on the current ChatGPT page structure and may need

@@ -74,9 +74,11 @@ The rail stays put as you move between conversations, and remains visible even w
 
 ### Running it from a userscript manager
 
-The script also works unmodified under Violentmonkey, Tampermonkey or similar. Loaded that way it does not export on its own — it paints the same rail, and additionally registers all three actions as menu commands in case a future ChatGPT stylesheet ever hides the rail.
+The script also runs under Violentmonkey, Tampermonkey or similar, which saves pasting it on every visit. Loaded that way it does not export on its own — it paints the same rail on every ChatGPT page, and additionally registers all three actions as menu commands in case a future ChatGPT stylesheet ever hides the rail.
 
-It does not ship with a userscript header; add `@match https://chatgpt.com/*` yourself if you want that.
+To install it, create a new script in your userscript manager and paste the whole of `chatgpt-export.js` in as its contents. The file starts with a userscript header, so the manager knows to run it on `chatgpt.com` and where to fetch new versions: it checks this repository for updates and installs them itself, as it would for any other script.
+
+The same file still pastes into the console unchanged; there the header is only comments.
 
 ## Files
 
