@@ -558,6 +558,45 @@
         return container;
     }
 
+    // ChatGPT's newer layout can set out a list as cards: each a row of two
+    // boxes, a thumbnail or an icon beside a stack of paragraphs — a title, a
+    // subtitle in the secondary text colour where there is one, then the body.
+    // The thumbnail is dropped: its alt text names the page the image was found
+    // on, not the card, and keeping it would cite a source nobody cited. The
+    // title is made bold and the subtitle italic by rewriting the paragraphs in
+    // place, so the rest of the pipeline renders links and code in them as it
+    // would anywhere. Runs before stripNoise and extractImages, which would
+    // otherwise turn the thumbnail into an [Image] marker first.
+    function extractCards(container) {
+        container.querySelectorAll('[data-d-component="row"]').forEach(row => {
+            const boxes = Array.from(row.children);
+            if (boxes.length !== 2 ||
+                !boxes.every(box => box.getAttribute('data-d-component') === 'box')) return;
+
+            const [media, body] = boxes;
+            if (!media.querySelector('[data-d-component="image"], [data-d-component="icon"]')) return;
+            if ((media.textContent || '').trim()) return;
+
+            const paragraphs = Array.from(body.children);
+            if (paragraphs.length < 2 ||
+                !paragraphs.every(p => p.tagName.toLowerCase() === 'p')) return;
+
+            media.remove();
+            wrapChildren(paragraphs[0], 'strong');
+            paragraphs.slice(1)
+                .filter(p => /--color-text-secondary/.test(p.getAttribute('style') || ''))
+                .forEach(p => wrapChildren(p, 'em'));
+        });
+
+        return container;
+    }
+
+    function wrapChildren(element, tag) {
+        const wrapper = document.createElement(tag);
+        while (element.firstChild) wrapper.appendChild(element.firstChild);
+        element.appendChild(wrapper);
+    }
+
     // A reply can end with a form of multiple-choice questions: each question a
     // paragraph, its options a radio group. The options carry no separators, so
     // left alone they run together on one line, and the next question with them.
@@ -641,6 +680,7 @@
         extractCodeBlocks(processed);
         extractEntityReferences(processed);
         extractSourceCitations(processed);
+        extractCards(processed);
         stripNoise(processed);
         extractRadioGroups(processed);
         extractImages(processed);
