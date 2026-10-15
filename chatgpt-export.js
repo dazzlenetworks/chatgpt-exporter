@@ -926,7 +926,7 @@
     // Exports the conversation markup itself, for whoever has to repair this script
     // after ChatGPT changes its UI. Every fix so far needed the real DOM, produced
     // by hand from the inspector each time.
-    function exportHtml(moment) {
+    function exportHtml(moment, stamp) {
         const root = findConversationRoot();
 
         if (!root) {
@@ -970,7 +970,7 @@
             clone.outerHTML
         ].join('\n');
 
-        downloadFile(buildExportName('html', now), html, 'text/html');
+        downloadFile(buildExportName('html', usableMoment(stamp) ? stamp : now), html, 'text/html');
         console.log('DOM export complete.');
     }
 
@@ -1081,6 +1081,12 @@
     // The moment is an argument so the preview can export under the same filename
     // it displayed, rather than deriving a fresh one that may have crossed a minute.
     //
+    // The stamp is a second, separate argument: the moment the filename is stamped
+    // with, which the preview can set to when the conversation started. It touches
+    // the name and nothing else — `created`, and the HTML export's provenance
+    // comment, always say when the export was actually made. Absent, the name is
+    // stamped with that moment, as it always was.
+    //
     // Guarded rather than defaulted, because these are also click handlers: an
     // unguarded parameter would silently receive a MouseEvent. Duck-typed rather
     // than `instanceof Date`, which answers no for a date built in another realm or
@@ -1090,12 +1096,12 @@
         return value && typeof value.getTime === 'function' && !isNaN(value.getTime());
     }
 
-    function exportMarkdown(moment) {
+    function exportMarkdown(moment, stamp) {
         const now = usableMoment(moment) ? moment : new Date();
         const markdown = buildMarkdown(now);
         if (!markdown) return;
 
-        downloadFile(buildExportName('md', now), markdown, 'text/markdown');
+        downloadFile(buildExportName('md', usableMoment(stamp) ? stamp : now), markdown, 'text/markdown');
 
         console.log('Export complete.');
     }
@@ -1185,8 +1191,12 @@
             `border-bottom:1px solid ${border}`
         ].join(';');
 
+        // The moment the filename is stamped with. The export moment by default; the
+        // toggle below can swap in when the conversation started.
+        let stamp = now;
+
         const name = document.createElement('div');
-        name.textContent = buildExportName('md', now);
+        name.textContent = buildExportName('md', stamp);
         name.style.cssText = [
             'font-size:12px',
             `color:${muted}`,
@@ -1194,6 +1204,43 @@
             'text-overflow:ellipsis',
             'white-space:nowrap'
         ].join(';');
+
+        const nameGroup = document.createElement('div');
+        nameGroup.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:0';
+        nameGroup.appendChild(name);
+
+        // A chat held open for hours is better identified by when it began than by
+        // when it was exported, so the preview offers that stamp instead. Offered
+        // only where the address holds a conversation id to read it from, off every
+        // time the preview opens, and never remembered: the script keeps no state,
+        // and the export time stays the default.
+        const started = conversationStarted();
+        if (started) {
+            const toggle = document.createElement('label');
+            toggle.title = `The conversation started ${formatCreatedFrontmatter(started)}`;
+            toggle.style.cssText = [
+                'flex:none',
+                'display:flex',
+                'align-items:center',
+                'gap:4px',
+                'font-size:12px',
+                `color:${muted}`,
+                'cursor:pointer',
+                'white-space:nowrap'
+            ].join(';');
+
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.style.cssText = 'margin:0;cursor:pointer';
+            box.addEventListener('change', () => {
+                stamp = box.checked ? started : now;
+                name.textContent = buildExportName('md', stamp);
+            });
+
+            toggle.appendChild(box);
+            toggle.appendChild(document.createTextNode('Stamp with conversation start'));
+            nameGroup.appendChild(toggle);
+        }
 
         // The header's controls are all text buttons of one shape. The rail's
         // icon-over-label tiles suit its column, but in a row beside a text
@@ -1222,19 +1269,20 @@
         // visible control is the only dismissal a first-time user can see.
         const close = textButton('Close', null, closePreview);
 
-        // Both are handed the moment the header was built from, so pressing one
-        // here writes the file whose name is on display beside it — deriving a
-        // fresh moment would rename the file out from under the label.
+        // Both are handed the moment the header was built from, and the stamp the
+        // toggle has chosen, so pressing one here writes the file whose name is on
+        // display beside it — deriving a fresh moment would rename the file out
+        // from under the label.
         //
         // The overlay stays open afterwards: both formats are plausibly wanted from
         // one reading, and closing would remove the thing being checked.
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex;align-items:center;gap:6px;flex:none';
-        actions.appendChild(textButton('.md', 'Export the conversation as Markdown', () => exportMarkdown(now)));
-        actions.appendChild(textButton('.html', 'Export the conversation markup as HTML', () => exportHtml(now)));
+        actions.appendChild(textButton('.md', 'Export the conversation as Markdown', () => exportMarkdown(now, stamp)));
+        actions.appendChild(textButton('.html', 'Export the conversation markup as HTML', () => exportHtml(now, stamp)));
         actions.appendChild(close);
 
-        header.appendChild(name);
+        header.appendChild(nameGroup);
         header.appendChild(actions);
 
         const body = document.createElement('pre');
