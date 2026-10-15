@@ -591,6 +591,65 @@
         return container;
     }
 
+    // ChatGPT's newer layout can draw a vertical flowchart as a stack of boxes:
+    // steps, each a title and a subtitle with an optional icon, and between them
+    // arrows, each an icon and a short label. Exported as a Mermaid flowchart,
+    // which renders as a diagram where Mermaid is supported and reads as text
+    // everywhere else.
+    //
+    // Detection is strict. Only a stack that alternates exactly — step, arrow,
+    // step, …, step — is drawn. A step needs two paragraphs, because a step of one
+    // paragraph and an icon would look exactly like an arrow; anything that does
+    // not fit is left alone and exports as paragraphs, as it always has, so a
+    // miss costs nothing new.
+    function extractFlowcharts(container) {
+        container.querySelectorAll('[data-d-component="box"]').forEach(stack => {
+            const boxes = Array.from(stack.children);
+            if (boxes.length < 3 || boxes.length % 2 === 0) return;
+            if (!boxes.every(box => box.getAttribute('data-d-component') === 'box')) return;
+
+            const parts = boxes.map(flowchartPart);
+            const alternates = parts.every((part, i) =>
+                part && part.kind === (i % 2 === 0 ? 'step' : 'arrow'));
+            if (!alternates) return;
+
+            const label = text => `"${text.replace(/"/g, '#quot;')}"`;
+            const steps = parts.filter(part => part.kind === 'step');
+            const lines = ['flowchart TD'];
+
+            steps.forEach((step, i) => {
+                lines.push(`    n${i + 1}[${label(step.lines.join('<br/>'))}]`);
+            });
+            parts.forEach((part, i) => {
+                if (part.kind !== 'arrow') return;
+                const from = i / 2 + 0.5;
+                lines.push(`    n${from} -->|${label(part.lines[0])}| n${from + 1}`);
+            });
+
+            replaceElementWithMarkdown(stack, `\n\n\`\`\`mermaid\n${lines.join('\n')}\n\`\`\`\n\n`);
+        });
+
+        return container;
+    }
+
+    // A box's role in a flowchart, from what it directly holds: an optional icon
+    // and two paragraphs is a step; an icon and one paragraph is an arrow.
+    function flowchartPart(box) {
+        const children = Array.from(box.children);
+        const icons = children.filter(child => child.getAttribute('data-d-component') === 'icon');
+        const paragraphs = children.filter(child => child.tagName.toLowerCase() === 'p');
+        if (icons.length + paragraphs.length !== children.length || icons.length > 1) return null;
+
+        const lines = paragraphs
+            .map(p => (p.textContent || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+        if (lines.length !== paragraphs.length) return null;
+
+        if (lines.length === 2) return { kind: 'step', lines };
+        if (lines.length === 1 && icons.length === 1) return { kind: 'arrow', lines };
+        return null;
+    }
+
     function wrapChildren(element, tag) {
         const wrapper = document.createElement(tag);
         while (element.firstChild) wrapper.appendChild(element.firstChild);
@@ -681,6 +740,7 @@
         extractEntityReferences(processed);
         extractSourceCitations(processed);
         extractCards(processed);
+        extractFlowcharts(processed);
         stripNoise(processed);
         extractRadioGroups(processed);
         extractImages(processed);
