@@ -382,9 +382,14 @@
         container.querySelectorAll('ul, ol').forEach(list => {
             if (list.parentElement?.closest('ul, ol')) return;
 
+            // A blank line either side, written here rather than left to the markup
+            // around the list. The classic layout has whitespace between its block
+            // elements, which used to supply the second newline; the newer layout
+            // has none, and a paragraph on the very next line after a list is read
+            // as part of its last item. cleanText collapses any surplus.
             const isOrdered = list.tagName.toLowerCase() === 'ol';
             const markdown = renderList(list, isOrdered ? 0 : 0);
-            replaceElementWithMarkdown(list, `\n${markdown}\n`);
+            replaceElementWithMarkdown(list, `\n\n${markdown}\n\n`);
         });
 
         return container;
