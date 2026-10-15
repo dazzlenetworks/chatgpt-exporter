@@ -44,7 +44,7 @@ Template notes:
   - {{CONVERSATION_STARTED}}: When the chat itself began, e.g. 4/12/2026 09:28
   - {{SOURCE_URL}}: Original chat URL
   - {{USER_MESSAGE_N}} / {{ASSISTANT_MESSAGE_N}}: Message body content
-- The conversation_started line is omitted entirely when the chat has no id to
-  derive it from, which is every logged-out conversation. Drop the whole line
-  rather than leaving it blank or guessing a value.
+- The conversation_started line is omitted entirely when the page's URL carries
+  no conversation id to derive it from. Drop the whole line rather than leaving
+  it blank or guessing a value.
 -->

@@ -871,12 +871,15 @@
     // seconds in their first 32 bits. Confirmed on two conversations four months
     // apart, and against the timestamp ChatGPT itself shows in a message's menu.
     //
+    // A signed-in conversation lives at /c/<id> and a logged-out one at /uc/<id>;
+    // both ids carry the time the same way.
+    //
     // The format is inferred rather than documented, so every part of it is checked
     // before the value is used. A wrong date stated confidently is worse than an
     // absent one, so anything unexpected returns null and the field is left out.
     function conversationStarted(pathname = window.location.pathname) {
         const id = pathname.match(
-            /\/c\/([0-9a-f]{8})-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}/i
+            /\/u?c\/([0-9a-f]{8})-[0-9a-f]{4}-([0-9a-f])[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}/i
         );
         if (!id) return null;
 
@@ -1029,8 +1032,9 @@
 
         // Kept separate from `created` rather than replacing it: one says when the
         // export ran, the other when the conversation began, and a reader has to be
-        // able to tell them apart. Absent entirely when it cannot be established,
-        // which is every logged-out conversation, since those have no id.
+        // able to tell them apart. Absent entirely when it cannot be established —
+        // on a page whose URL carries no conversation id, such as a new chat
+        // before ChatGPT has assigned one.
         if (started) lines.push(`conversation_started: ${formatCreatedFrontmatter(started)}`);
 
         lines.push(`title: "${escapeYamlString(chatTitle)}"`);

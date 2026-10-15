@@ -38,7 +38,7 @@ Each Markdown export opens with a short YAML block:
 | `turns_loaded` | Written instead, when ChatGPT has not finished fetching. How many turns the page held — a floor, not a length |
 | `more_turns_unfetched` | Present alongside `turns_loaded`, saying plainly that earlier turns had not been fetched |
 
-**`conversation_started` is frequently absent, and that is not a fault.** It is derived from the conversation's own id, which ChatGPT only assigns to a signed-in chat. Exporting a logged-out conversation leaves nothing to derive it from, so the field is left out rather than filled with a guess — an omitted date is honest, whereas a plausible wrong one is not.
+**`conversation_started` is sometimes absent, and that is not a fault.** It is derived from the conversation's own id, which appears in the page's address once ChatGPT has assigned one — for a signed-in chat and a logged-out one alike. Where the address carries no id, there is nothing to derive it from, so the field is left out rather than filled with a guess — an omitted date is honest, whereas a plausible wrong one is not.
 
 ## Usage
 
