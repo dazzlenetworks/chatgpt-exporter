@@ -44,6 +44,7 @@ Template notes:
   - {{EXPORT_DATETIME}}: Export timestamp, e.g. 5/5/2026 20:57
   - {{CONVERSATION_STARTED}}: When the chat itself began, e.g. 4/12/2026 09:28
   - {{SOURCE_URL}}: Original chat URL
+  - {{EXPORTER_VERSION}}: The exporter version that wrote the file, e.g. 1.0.0
   - {{USER_MESSAGE_N}} / {{ASSISTANT_MESSAGE_N}}: Message body content
 - The conversation_started line is omitted entirely when the page's URL carries
   no conversation id to derive it from. Drop the whole line rather than leaving
