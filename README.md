@@ -157,6 +157,9 @@ It currently handles ordinary conversation content fairly well, including:
   stack of boxes exports as a Mermaid flowchart, a list of cards as a bold
   title, an italic subtitle and a body, and a closing set of multiple-choice
   questions as each question followed by its options as a list
+- your own prompts, exactly as typed — blank lines, spacing and indentation
+  kept, and a single line break written as a Markdown hard break (two trailing
+  spaces) so it still shows as one when the file is rendered
 
 Some advanced content may still export imperfectly, including:
 - task lists

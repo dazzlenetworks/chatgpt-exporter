@@ -129,6 +129,10 @@
     // renders inline text. Whitespace-only nodes are left untouched so block
     // separation is preserved, and <pre>/<code> subtrees are skipped so code
     // indentation and spacing survive intact.
+    //
+    // A user's prompt is not passed through here at all: it is the raw text that
+    // was typed, shown pre-wrapped, so its newlines are the user's own line breaks
+    // and its spaces are what they typed, not wraps in the page source.
     function normalizeWhitespace(node) {
         if (node.nodeType === Node.TEXT_NODE) {
             if (/\S/.test(node.textContent)) {
@@ -143,6 +147,47 @@
         if (tag === 'pre' || tag === 'code') return;
 
         Array.from(node.childNodes).forEach(normalizeWhitespace);
+    }
+
+    // Markdown joins the lines of a paragraph, so a single newline the user typed
+    // would render as a space. Each one becomes a two-space hard break. That runs
+    // after cleanText, which would otherwise strip the spaces. A backslash hard
+    // break was tried first and Obsidian prints the backslash. A blank line is
+    // already a paragraph break and is left alone.
+    //
+    // Three places take no break, because there it would do harm. Before a line
+    // that starts a block of its own (a quote, heading, list item or fence) the
+    // block already begins on its own line. Inside a fence the text is code, and a
+    // fence line itself must end bare or it no longer opens or closes one. And
+    // after a quoted line, a plain newline would fold the next line into the
+    // quote, so a quote is closed with a blank line instead. Between two quoted
+    // lines the break goes in as usual, and breaks the line inside the quote.
+    function userLineBreaks(text) {
+        const lines = text.split('\n');
+        const startsBlock = line => /^\s{0,3}(>|#{1,6}\s|[-*+]\s|\d+[.)]\s|```|~~~)/.test(line);
+        const isQuote = line => /^\s{0,3}>/.test(line);
+        const isFence = line => /^\s{0,3}(```|~~~)/.test(line);
+
+        let inFence = false;
+        let out = lines[0];
+
+        for (let i = 1; i < lines.length; i++) {
+            const prev = lines[i - 1];
+            const line = lines[i];
+            if (isFence(prev)) inFence = !inFence;
+
+            if (inFence || isFence(prev) || prev === '' || line === '') {
+                out += '\n' + line;
+            } else if (isQuote(prev) && !isQuote(line)) {
+                out += '\n\n' + line;
+            } else if (startsBlock(line) && !isQuote(prev)) {
+                out += '\n' + line;
+            } else {
+                out += '  \n' + line;
+            }
+        }
+
+        return out;
     }
 
     function renderInline(node) {
@@ -751,11 +796,11 @@
     }
 
 
-    function extractMessageText(container) {
+    function extractMessageText(container, isUser = false) {
         if (!container) return '';
 
         const processed = container.cloneNode(true);
-        normalizeWhitespace(processed);
+        if (!isUser) normalizeWhitespace(processed);
         extractCodeBlocks(processed);
         extractEntityReferences(processed);
         extractSourceCitations(processed);
@@ -771,7 +816,8 @@
         extractLists(processed);
         extractBlockquotes(processed);
 
-        return cleanText(renderInline(processed));
+        const text = cleanText(renderInline(processed));
+        return isUser ? userLineBreaks(text) : text;
     }
 
 
@@ -1084,7 +1130,7 @@
                 turn.querySelector('.prose') ||
                 turn.querySelector('div');
 
-            const text = extractMessageText(content);
+            const text = extractMessageText(content, role === 'user');
 
             if (!text) return;
 
