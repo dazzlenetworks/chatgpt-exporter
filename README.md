@@ -32,6 +32,7 @@ Each Markdown export opens with a short YAML block:
 | `conversation_started` | When the chat itself began |
 | `title` | The conversation's title, or its opening words where it has none |
 | `source` | The page the export was taken from |
+| `version` | The version of the exporter that wrote the file |
 | `incomplete` | Present only when the export is short of the whole conversation |
 | `turns_exported` | How many turns this file contains |
 | `turns_in_conversation` | How long the conversation is. Written only when that is actually known |
@@ -79,6 +80,12 @@ The script also runs under Violentmonkey, Tampermonkey or similar, which saves p
 To install it, create a new script in your userscript manager and paste the whole of `chatgpt-export.js` in as its contents. The file starts with a userscript header, so the manager knows to run it on `chatgpt.com` and where to fetch new versions: it checks this repository for updates and installs them itself, as it would for any other script.
 
 The same file still pastes into the console unchanged; there the header is only comments.
+
+### Which version you have
+
+The preview's header shows it, as `v1.0.0` or similar, beside the filename. Every export records it too: the Markdown's `version` field, and the HTML export's opening comment. A userscript manager shows the same number in its list of installed scripts.
+
+Versions are [semantic](https://semver.org/): the last number rises for a fix, the middle one for something new, and the first for a change to what an export looks like that anything reading the files would have to adjust to. Before 1.0.0 the script was versioned by date, as `2026.10.14`, and a manager holding one of those will not see 1.0.0 as newer — reinstall it once from this repository.
 
 ## Files
 

@@ -3,6 +3,7 @@ created: {{EXPORT_DATETIME}}
 conversation_started: {{CONVERSATION_STARTED}}
 title: {{CHAT_TITLE}}
 source: {{SOURCE_URL}}
+version: {{EXPORTER_VERSION}}
 ---
 
 # ChatGPT Conversation Export

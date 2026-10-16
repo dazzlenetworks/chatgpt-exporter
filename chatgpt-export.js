@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Exporter
 // @namespace    https://github.com/dazzlenetworks/chatgpt-exporter
-// @version      2026.10.14
+// @version      1.0.0
 // @description  Export the open ChatGPT conversation to Markdown or HTML.
 // @match        https://chatgpt.com/*
 // @grant        GM_registerMenuCommand
@@ -20,8 +20,11 @@
  * treats it as comments.
  *
  * A userscript manager only takes an update when @version goes up, so raise it
- * with every change to this file that should reach installed copies. It is the
- * date of the change, with a further .1, .2 for later changes the same day.
+ * with every change to this file that should reach installed copies. It is a
+ * semantic version: the last number for a fix, the middle one for something
+ * new, the first for a change to what an export looks like that a reader or a
+ * tool relying on it would have to adjust to. VERSION below says the same thing
+ * to the exports themselves, so the two always move together.
  *
  * Notes:
  * - This script depends on the current ChatGPT page structure and may need
@@ -32,6 +35,10 @@
  *   sensitive information.
  */
 (() => {
+    // The same as @version above. A console paste cannot read the header, so the
+    // exports and the preview take it from here.
+    const VERSION = '1.0.0';
+
     function formatCreatedFrontmatter(date = new Date()) {
         const month = date.getMonth() + 1;
         const day = date.getDate();
@@ -1030,7 +1037,7 @@
         const html = [
             '<!DOCTYPE html>',
             '<meta charset="utf-8">',
-            `<!-- ChatGPT conversation markup.${shortfall} Exported ${formatCreatedFrontmatter(now)} from ${window.location.href} -->`,
+            `<!-- ChatGPT conversation markup, by ChatGPT Exporter ${VERSION}.${shortfall} Exported ${formatCreatedFrontmatter(now)} from ${window.location.href} -->`,
             clone.outerHTML
         ].join('\n');
 
@@ -1105,6 +1112,10 @@
 
         lines.push(`title: "${escapeYamlString(chatTitle)}"`);
         lines.push(`source: "${escapeYamlString(url)}"`);
+
+        // Which exporter wrote the file, so an export from before a fix can be told
+        // apart from one after it.
+        lines.push(`version: ${VERSION}`);
         lines.push('---');
         lines.push('');
         lines.push(`# ${title}`);
@@ -1305,6 +1316,14 @@
             toggle.appendChild(document.createTextNode('Stamp with conversation start'));
             nameGroup.appendChild(toggle);
         }
+
+        // The version the export below carries in its frontmatter, so what is
+        // previewed says the same as what downloads.
+        const version = document.createElement('div');
+        version.textContent = `v${VERSION}`;
+        version.title = `ChatGPT Exporter ${VERSION}`;
+        version.style.cssText = ['flex:none', 'font-size:12px', `color:${muted}`, 'white-space:nowrap'].join(';');
+        nameGroup.appendChild(version);
 
         // The header's controls are all text buttons of one shape. The rail's
         // icon-over-label tiles suit its column, but in a row beside a text
