@@ -162,7 +162,8 @@ It currently handles ordinary conversation content fairly well, including:
   by `<br>`, since a Markdown table cell cannot hold a line break
 - the richer layout ChatGPT uses for some replies — a flowchart drawn as a
   stack of boxes exports as a Mermaid flowchart, a list of cards as a bold
-  title, an italic subtitle and a body, and a closing set of multiple-choice
+  title, an italic subtitle and a body, a title set inside a card or a tile
+  as bold text rather than a heading, and a closing set of multiple-choice
   questions as each question followed by its options as a list
 - your own prompts, exactly as typed — blank lines, spacing and indentation
   kept, and a single line break written as a Markdown hard break (two trailing

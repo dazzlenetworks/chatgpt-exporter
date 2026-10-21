@@ -384,6 +384,14 @@
                 return;
             }
 
+            // The newer layout puts title components inside boxes too — a card's
+            // title, a stat tile's value — where a heading would rank them beside
+            // the reply's own sections. Those are bold paragraphs instead.
+            if (heading.closest('[data-d-component="box"]')) {
+                replaceElementWithMarkdown(heading, `\n\n**${text}**\n\n`);
+                return;
+            }
+
             replaceElementWithMarkdown(heading, `\n${'#'.repeat(level)} ${text}\n`);
         });
 
