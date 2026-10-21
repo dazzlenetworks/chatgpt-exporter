@@ -628,6 +628,36 @@
         return container;
     }
 
+    // A box in the newer layout can hold its body as bare text after a title row,
+    // with no <p> around it. Only a <p> ends a paragraph when rendered, so that
+    // text would run straight into the next block. Each run of text and inline
+    // elements directly inside a box is wrapped in a <p> of its own.
+    function wrapBareBoxText(container) {
+        const inline = /^(a|b|code|em|i|span|strong)$/;
+        container.querySelectorAll('[data-d-component="box"]').forEach(box => {
+            let run = [];
+            const wrap = () => {
+                if (run.some(node => /\S/.test(node.textContent || ''))) {
+                    const p = document.createElement('p');
+                    run[0].before(p);
+                    run.forEach(node => p.appendChild(node));
+                }
+                run = [];
+            };
+            Array.from(box.childNodes).forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE ||
+                    (node.nodeType === Node.ELEMENT_NODE && inline.test(node.tagName.toLowerCase()))) {
+                    run.push(node);
+                } else {
+                    wrap();
+                }
+            });
+            wrap();
+        });
+
+        return container;
+    }
+
     // ChatGPT's newer layout can set out a list as cards: each a row of two
     // boxes, a thumbnail or an icon beside a stack of paragraphs — a title, a
     // subtitle in the secondary text colour where there is one, then the body.
@@ -811,6 +841,7 @@
         extractCodeBlocks(processed);
         extractEntityReferences(processed);
         extractSourceCitations(processed);
+        wrapBareBoxText(processed);
         extractCards(processed);
         extractFlowcharts(processed);
         stripNoise(processed);
