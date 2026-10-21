@@ -161,7 +161,9 @@ It currently handles ordinary conversation content fairly well, including:
 - tables — exported as Markdown tables, with a cell's separate paragraphs joined
   by `<br>`, since a Markdown table cell cannot hold a line break
 - the richer layout ChatGPT uses for some replies — a flowchart drawn as a
-  stack of boxes exports as a Mermaid flowchart, a list of cards as a bold
+  stack of boxes exports as a Mermaid flowchart, a stack joined by bare
+  arrow icons as its boxes with an arrow (↕ or ↓) on a line between them, a
+  list of cards as a bold
   title, an italic subtitle and a body, a title set inside a card or a tile
   as bold text rather than a heading, and a closing set of multiple-choice
   questions as each question followed by its options as a list

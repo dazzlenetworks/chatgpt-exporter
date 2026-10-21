@@ -740,6 +740,20 @@
         return container;
     }
 
+    // A stack of boxes can also be joined by bare arrow icons, with no label and
+    // no box of their own, which extractFlowcharts does not draw. stripNoise
+    // would remove them with every other svg and leave the stack as unrelated
+    // paragraphs, so each becomes an arrow on a line of its own.
+    function extractBareArrows(container) {
+        const arrows = { 'arrow-down-up': '↕', 'arrow-down': '↓' };
+        container.querySelectorAll('[data-d-component="box"] > [data-d-component="icon"]').forEach(icon => {
+            const name = (icon.getAttribute('data-icon-name') || '').replace(/^lucide:/, '');
+            if (arrows[name]) replaceElementWithMarkdown(icon, `\n\n${arrows[name]}\n\n`);
+        });
+
+        return container;
+    }
+
     // A box's role in a flowchart, from what it directly holds: an optional icon
     // and two paragraphs is a step; an icon and one paragraph is an arrow.
     function flowchartPart(box) {
@@ -852,6 +866,7 @@
         wrapBareBoxText(processed);
         extractCards(processed);
         extractFlowcharts(processed);
+        extractBareArrows(processed);
         stripNoise(processed);
         extractRadioGroups(processed);
         extractImages(processed);
