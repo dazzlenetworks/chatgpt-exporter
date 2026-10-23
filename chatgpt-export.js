@@ -98,13 +98,11 @@
     // generic placeholder.
     function firstUserMessageTitle(turns) {
         for (const turn of turns) {
-            const role =
-                turn.getAttribute('data-message-author-role') ||
-                turn.getAttribute('data-message-role');
-            if (role !== 'user') continue;
+            if (turnRole(turn) !== 'user') continue;
 
             const content =
                 turn.querySelector('[data-user-message-copy]') ||
+                turn.querySelector('[data-user-message-bubble]') ||
                 turn.querySelector('.markdown') ||
                 turn.querySelector('.prose') ||
                 turn;
@@ -887,10 +885,29 @@
     // classic layout uses `data-message-author-role`; the newer stylex one uses
     // `data-message-role`. Support both so exports work across layouts.
     //
+    // A signed-in chat, seen 10/23/2026, carries neither: each turn is a
+    // `data-chatgpt-search-unit-key` unit, and its role is read from what it
+    // holds (see turnRole). That selector is only tried when the role attributes
+    // find nothing, so a page carrying both markups cannot count a turn twice.
+    //
     // This finds what is *rendered*, which is not the same as what the
     // conversation contains — see conversationInventory below.
     function findTurns() {
-        return document.querySelectorAll('[data-message-author-role], [data-message-role]');
+        const turns = document.querySelectorAll('[data-message-author-role], [data-message-role]');
+        return turns.length ? turns : document.querySelectorAll('[data-chatgpt-search-unit-key]');
+    }
+
+    // A turn's role: from its role attribute where it has one, otherwise from what
+    // a signed-in turn unit holds — the prompt's bubble, or the reply's
+    // attribution heading.
+    function turnRole(turn) {
+        const role =
+            turn.getAttribute('data-message-author-role') ||
+            turn.getAttribute('data-message-role');
+        if (role) return role;
+        if (turn.querySelector('[data-user-message-bubble]')) return 'user';
+        if (turn.querySelector('[data-conversation-role="assistant"]')) return 'assistant';
+        return null;
     }
 
     // What the conversation holds, against what is rendered right now.
@@ -1178,9 +1195,7 @@
         lines.push('');
 
         turns.forEach(turn => {
-            const role =
-                turn.getAttribute('data-message-author-role') ||
-                turn.getAttribute('data-message-role');
+            const role = turnRole(turn);
 
             let sender = 'Unknown';
             if (role === 'user') sender = 'User Prompt';
@@ -1191,6 +1206,8 @@
             const content =
                 turn.querySelector('[data-assistant-markdown]') ||
                 turn.querySelector('[data-user-message-copy]') ||
+                turn.querySelector('[data-dil-message-id]') ||
+                turn.querySelector('[data-user-message-bubble]') ||
                 turn.querySelector('.markdown') ||
                 turn.querySelector('.prose') ||
                 turn.querySelector('div');
