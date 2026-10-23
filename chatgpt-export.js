@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Exporter
 // @namespace    https://github.com/dazzlenetworks/chatgpt-exporter
-// @version      1.0.1
+// @version      1.0.2
 // @description  Export the open ChatGPT conversation to Markdown or HTML.
 // @match        https://chatgpt.com/*
 // @grant        GM_registerMenuCommand
@@ -37,7 +37,7 @@
 (() => {
     // The same as @version above. A console paste cannot read the header, so the
     // exports and the preview take it from here.
-    const VERSION = '1.0.1';
+    const VERSION = '1.0.2';
 
     function formatCreatedFrontmatter(date = new Date()) {
         const month = date.getMonth() + 1;
